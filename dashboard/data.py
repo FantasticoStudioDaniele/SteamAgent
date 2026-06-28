@@ -205,6 +205,9 @@ def filter_dates(df: pd.DataFrame, col: str, key: str, label: str = "Period") ->
         return df
     lo = df[col].min().date()
     hi = df[col].max().date()
+    if lo >= hi:  # only one day available: a range picker would error out
+        st.sidebar.caption(f"{label}: {lo} (single day)")
+        return df
     sel = st.sidebar.date_input(label, (lo, hi), min_value=lo, max_value=hi, key=key)
     if isinstance(sel, (list, tuple)) and len(sel) == 2:
         a = pd.Timestamp(sel[0])

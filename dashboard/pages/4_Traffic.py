@@ -8,6 +8,10 @@ import data
 
 st.set_page_config(page_title="Traffic · SteamAgent", page_icon="🚦", layout="wide")
 st.title("🚦 Store traffic")
+st.caption(
+    "Detailed per-source breakdown for the days collected via `collect-traffic` "
+    "(one day at a time). For visits/impressions **over time**, see the Marketing page."
+)
 
 df = data.traffic()
 if df.empty:

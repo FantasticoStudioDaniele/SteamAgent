@@ -25,10 +25,13 @@ g = df[df["game"] == game].copy()
 
 # --- period ---
 lo, hi = g["date"].min().date(), g["date"].max().date()
-sel = st.sidebar.date_input("Period", (lo, hi), min_value=lo, max_value=hi, key="mk_dates")
-if isinstance(sel, (list, tuple)) and len(sel) == 2:
-    a, b = pd.Timestamp(sel[0]), pd.Timestamp(sel[1]) + pd.Timedelta(days=1)
-    g = g[(g["date"] >= a) & (g["date"] < b)]
+if lo >= hi:  # only one day available: skip the (broken) range picker
+    st.sidebar.caption(f"Period: {lo} (single day)")
+else:
+    sel = st.sidebar.date_input("Period", (lo, hi), min_value=lo, max_value=hi, key="mk_dates")
+    if isinstance(sel, (list, tuple)) and len(sel) == 2:
+        a, b = pd.Timestamp(sel[0]), pd.Timestamp(sel[1]) + pd.Timedelta(days=1)
+        g = g[(g["date"] >= a) & (g["date"] < b)]
 
 # --- granularity (8 years of daily data is dense) ---
 gran = st.sidebar.radio("Granularity", ["Month", "Week", "Day"], key="mk_gran")
