@@ -5,7 +5,7 @@ description = "Agentic automation for collecting Steam developer/partner data, w
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Daniele Bianchini" }]
+authors = [{ name = "Daniele Bianchini" }, { name = "Fantastico Studio" }]
 keywords = ["steam", "steamworks", "analytics", "dashboard", "automation", "playwright"]
 classifiers = [
     "Development Status :: 4 - Beta",

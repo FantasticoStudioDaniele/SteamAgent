@@ -149,6 +149,12 @@ Cross-platform code. In production: switch to Postgres (`DATABASE_URL`), configu
 
 [MIT](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Credits & support
+
+Built by **Daniele Bianchini** at **[Fantastico Studio](https://fantasticostudio.it/)**.
+
+If you'd like to support us, check out our games and website: **https://fantasticostudio.it/** 🎮
+
 ## Legal notes
 
 Collect **your** data from your partner portal: legitimate use. No third-party
