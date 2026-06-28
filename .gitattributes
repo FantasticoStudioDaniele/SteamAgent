@@ -1,0 +1,9 @@
+# Normalizza i fine-riga a LF nel repo (coerenza cross-platform)
+* text=auto eol=lf
+
+# Binari: nessuna conversione
+*.png binary
+*.gif binary
+*.jpg binary
+*.ico binary
+*.exe binary

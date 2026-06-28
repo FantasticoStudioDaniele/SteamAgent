@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Env & secrets (MAI committare)
+.env
+*.maFile
+storage_state.json
+
+# Dati locali (raw + db); mantieni la cartella ma non il contenuto
+data/*
+!data/.gitkeep
+
+# Catalogo giochi: specifico per ogni utente (generato da `setup`/`collect-games`)
+/config/games.yaml
+
+# Binari steamguard-cli scaricati a parte
+steamguard-*.exe
+steamguard
+*.maFile
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Playwright
+playwright-report/
+.playwright-mcp/

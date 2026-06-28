@@ -1,0 +1,29 @@
+"""Aggiornamento idempotente del file `.env` (preserva commenti e altre righe)."""
+from __future__ import annotations
+
+from pathlib import Path
+
+from steam_agent.settings import PROJECT_ROOT
+
+ENV_PATH = PROJECT_ROOT / ".env"
+
+
+def update_env(updates: dict[str, str], path: Path = ENV_PATH) -> Path:
+    """Crea/aggiorna le chiavi indicate nel `.env`, lasciando intatto il resto."""
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    out: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in updates:
+                out.append(f"{key}={updates[key]}")
+                seen.add(key)
+                continue
+        out.append(line)
+    for key, value in updates.items():
+        if key not in seen:
+            out.append(f"{key}={value}")
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    return path
