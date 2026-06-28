@@ -1,97 +1,97 @@
 # SteamAgent
 
-Raccolta automatica di **tutti i dati del tuo account Steam developer/partner**
-— vendite, wishlist, traffico, marketing, giocatori, recensioni, tempo di gioco —
-con **dashboard** di visualizzazione e base per elaborazioni LLM.
+Automated collection of **all the data from your Steam developer/partner account**
+— sales, wishlist, traffic, marketing, players, reviews, playtime —
+with a visualization **dashboard** and a foundation for LLM processing.
 
-Steam espone pochi dati via API: alcuni si scaricano in CSV dai portali partner,
-altri vanno letti dall'HTML/JS delle pagine. SteamAgent automatizza login e
-raccolta e salva tutto in un database locale (SQLite, o Postgres in produzione).
+Steam exposes little data via API: some can be downloaded as CSV from the partner
+portals, while the rest must be read from the pages' HTML/JS. SteamAgent automates
+login and collection and saves everything to a local database (SQLite, or Postgres in production).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> Usa i **tuoi** dati dal **tuo** portale partner: raccolta legittima. Niente
-> scraping di terze parti (es. SteamDB), rate limit gentili.
+> Use **your** data from **your** partner portal: legitimate collection. No
+> third-party scraping (e.g. SteamDB), gentle rate limits.
 
-## Cosa raccoglie
+## What it collects
 
-| Dataset | Contenuto |
+| Dataset | Content |
 |---|---|
-| **Vendite** | unità + ricavi netti per prodotto/paese (mensile) |
-| **Wishlist** | aggiunte/rimozioni/attivazioni (giornaliero) |
-| **Marketing** | visite & impression per sorgente (storia completa) + ownership + top paesi |
-| **Giocatori** | DAU + picco di utenti concorrenti (giornaliero) |
-| **Playtime** | tempo medio/mediano + distribuzione lifetime (snapshot) |
-| **Recensioni** | testo + voto + lingua (API pubblica) |
-| **Traffico** | breakdown dettagliato visite/impression per sorgente (giornaliero) |
+| **Sales** | units + net revenue per product/country (monthly) |
+| **Wishlist** | additions/removals/activations (daily) |
+| **Marketing** | visits & impressions per source (full history) + ownership + top countries |
+| **Players** | DAU + peak concurrent users (daily) |
+| **Playtime** | mean/median time + lifetime distribution (snapshot) |
+| **Reviews** | text + rating + language (public API) |
+| **Traffic** | detailed breakdown of visits/impressions per source (daily) |
 
-Più una **dashboard Streamlit** con panoramica e una pagina per dataset.
+Plus a **Streamlit dashboard** with an overview and one page per dataset.
 
-## Requisiti
+## Requirements
 
 - Python ≥ 3.11
 - [uv](https://docs.astral.sh/uv/)
-- Un **account Steam dedicato al bot** (vedi [Prerequisito](#prerequisito-account-bot))
+- A **dedicated Steam bot account** (see [Prerequisite](#prerequisite-bot-account))
 
-## Avvio rapido
+## Quickstart
 
 ```bash
 git clone <repo-url> SteamAgent && cd SteamAgent
-uv sync                                  # crea .venv e installa le dipendenze
-uv run playwright install chromium       # browser per il login al portale
+uv sync                                  # creates .venv and installs dependencies
+uv run playwright install chromium       # browser for the portal login
 
-uv run steam-agent setup                 # wizard: credenziali, login, partner, giochi, DB
-uv run steam-agent collect-all           # scarica tutti i dati
-uv run streamlit run dashboard/app.py    # dashboard su http://localhost:8501
+uv run steam-agent setup                 # wizard: credentials, login, partner, games, DB
+uv run steam-agent collect-all           # downloads all data
+uv run streamlit run dashboard/app.py    # dashboard at http://localhost:8501
 ```
 
-Il comando **`setup`** è interattivo: chiede le credenziali del bot, apre il
-browser per il login (gestisce la conferma email e il codice 2FA), **rileva da
-solo** il tuo `partner_id` e il nome studio, scarica la lista giochi e inizializza
-il database. In qualsiasi momento, **`uv run steam-agent doctor`** verifica che
-tutti i prerequisiti siano a posto.
+The **`setup`** command is interactive: it asks for the bot credentials, opens the
+browser for login (handling the email confirmation and the 2FA code), **auto-detects**
+your `partner_id` and studio name, downloads the game list and initializes
+the database. At any time, **`uv run steam-agent doctor`** checks that
+all prerequisites are in place.
 
-## Prerequisito: account bot
+## Prerequisite: bot account
 
-1. Crea un **account Steam dedicato** (non il tuo personale) e invitalo nel tuo
-   Steamworks con permesso di **sola lettura dei report** (non admin). Isola le credenziali.
-2. **2FA / Steam Guard** — due strade:
-   - **Semplice (locale):** non configurare nulla. A ogni `login` inserisci a mano
-     il codice Steam Guard (dall'app mobile o dall'email).
-   - **Automatico (server non presidiato):** estrai lo `shared_secret`
-     dell'authenticator con [steamguard-cli](https://github.com/dyc3/steamguard-cli)
-     o Steam Desktop Authenticator e mettilo in `STEAM_SHARED_SECRET`: il login userà
-     il TOTP, adatto a uno scheduler.
-3. *(opzionale)* una **publisher Web API key** dello Steamworks → `STEAM_PUBLISHER_API_KEY`.
+1. Create a **dedicated Steam account** (not your personal one) and invite it into your
+   Steamworks with **read-only report** permission (not admin). Keep the credentials isolated.
+2. **2FA / Steam Guard** — two options:
+   - **Simple (local):** configure nothing. On each `login`, enter the
+     Steam Guard code by hand (from the mobile app or email).
+   - **Automatic (unattended server):** extract the authenticator's `shared_secret`
+     with [steamguard-cli](https://github.com/dyc3/steamguard-cli)
+     or Steam Desktop Authenticator and put it in `STEAM_SHARED_SECRET`: login will use
+     the TOTP, suitable for a scheduler.
+3. *(optional)* a Steamworks **publisher Web API key** → `STEAM_PUBLISHER_API_KEY`.
 
-> Il primo login conviene farlo con interfaccia grafica (lo fa `setup`, oppure
-> `login --headed`): Steam può chiedere una conferma "nuovo dispositivo" via email.
-> Dopo, la sessione è salvata in `data/storage_state.json` e i login successivi
-> sono automatici.
+> It's best to do the first login with a graphical interface (`setup` does this, or
+> `login --headed`): Steam may ask for a "new device" confirmation via email.
+> Afterwards, the session is saved in `data/storage_state.json` and subsequent logins
+> are automatic.
 
-## Comandi
+## Commands
 
 ```bash
-uv run steam-agent setup             # wizard di primo avvio
-uv run steam-agent doctor            # verifica i prerequisiti
-uv run steam-agent collect-all       # aggiorna TUTTI i dataset in sequenza
-uv run steam-agent login [--headed]  # solo login/refresh della sessione
-uv run steam-agent collect-games     # aggiorna la lista giochi (config/games.yaml)
+uv run steam-agent setup             # first-run wizard
+uv run steam-agent doctor            # check prerequisites
+uv run steam-agent collect-all       # update ALL datasets in sequence
+uv run steam-agent login [--headed]  # login/session refresh only
+uv run steam-agent collect-games     # update the game list (config/games.yaml)
 
-# singoli dataset:
-uv run steam-agent collect-marketing # visite/impression per sorgente + ownership + paesi
+# individual datasets:
+uv run steam-agent collect-marketing # visits/impressions per source + ownership + countries
 uv run steam-agent collect-wishlist
 uv run steam-agent collect-sales [--since YYYY-MM] [--month YYYY-MM]
 uv run steam-agent collect-players
 uv run steam-agent collect-playtime
 uv run steam-agent collect-reviews
 uv run steam-agent collect-traffic [--day YYYY-MM-DD]
-uv run steam-agent show              # ultimi snapshot pubblici
+uv run steam-agent show              # latest public snapshots
 ```
 
-Tutti i collector sono **idempotenti** (rilanciabili quando vuoi). Marketing,
-wishlist e players riscaricano l'intera storia (un lancio = dati completi); le
-vendite si aggiornano per-mese; il traffico per-giorno; le recensioni in upsert.
+All collectors are **idempotent** (rerun them whenever you want). Marketing,
+wishlist and players re-download the full history (one run = complete data); sales
+update per-month; traffic per-day; reviews via upsert.
 
 ## Dashboard
 
@@ -99,57 +99,57 @@ vendite si aggiornano per-mese; il traffico per-giorno; le recensioni in upsert.
 uv run streamlit run dashboard/app.py
 ```
 
-Multipage (`dashboard/pages/`), legge il DB con lo stesso engine dei collector
-(quindi funziona anche con Postgres). Cache 5 min, pulsante **Aggiorna dati**.
-Pagine: **Panoramica · Vendite · Wishlist · Giocatori · Traffico · Playtime ·
-Recensioni · Marketing**.
+Multipage (`dashboard/pages/`), it reads the DB with the same engine as the collectors
+(so it works with Postgres too). 5-min cache, **Refresh data** button.
+Pages: **Overview · Sales · Wishlist · Players · Traffic · Playtime ·
+Reviews · Marketing**.
 
-## Configurazione (`.env`)
+## Configuration (`.env`)
 
-| Variabile | Obblig. | Note |
+| Variable | Required | Notes |
 |---|---|---|
-| `STEAM_USERNAME` / `STEAM_PASSWORD` | sì | account bot dedicato |
-| `STEAM_SHARED_SECRET` | no | login automatico (TOTP); vuoto = codice manuale |
-| `STEAM_PARTNER_ID` | per le vendite | auto-rilevato da `setup` |
-| `STUDIO_NAME` | no | mostrato in dashboard; auto-rilevato |
-| `ANTHROPIC_API_KEY` | no | funzioni LLM (roadmap) |
-| `DATABASE_URL` | no | default SQLite; per Postgres cambia qui |
+| `STEAM_USERNAME` / `STEAM_PASSWORD` | yes | dedicated bot account |
+| `STEAM_SHARED_SECRET` | no | automatic login (TOTP); empty = manual code |
+| `STEAM_PARTNER_ID` | for sales | auto-detected by `setup` |
+| `STUDIO_NAME` | no | shown in dashboard; auto-detected |
+| `ANTHROPIC_API_KEY` | no | LLM features (roadmap) |
+| `DATABASE_URL` | no | defaults to SQLite; change here for Postgres |
 | `STEAM_PUBLISHER_API_KEY` | no | Steamworks Web API |
 
-Copia `.env.example` in `.env`, oppure lascia fare a `setup`. Il `.env`, la
-sessione (`storage_state.json`) e i dati locali (`data/`) sono in `.gitignore`:
-non finiscono mai nel repository.
+Copy `.env.example` to `.env`, or let `setup` handle it. The `.env`, the
+session (`storage_state.json`) and the local data (`data/`) are in `.gitignore`:
+they never end up in the repository.
 
-## Come funziona (in breve)
+## How it works (in brief)
 
-- `src/steam_agent/auth/` — login automatico ai portali partner (Playwright + Steam Guard).
-- `src/steam_agent/collectors/` — un modulo per dataset (download CSV o scraping HTML/JS).
-- `src/steam_agent/storage/` — modelli SQLAlchemy, landing grezza + warehouse tipizzato.
+- `src/steam_agent/auth/` — automatic login to the partner portals (Playwright + Steam Guard).
+- `src/steam_agent/collectors/` — one module per dataset (CSV download or HTML/JS scraping).
+- `src/steam_agent/storage/` — SQLAlchemy models, raw landing + typed warehouse.
 - `dashboard/` — Streamlit.
 
-Steam ha **due portali** con login separati: `partner.steamgames.com` (nuovo:
-traffico, marketing) e `partner.steampowered.com` (vecchio: vendite, wishlist,
-players, playtime). Una stessa sessione copre entrambi.
+Steam has **two portals** with separate logins: `partner.steamgames.com` (new:
+traffic, marketing) and `partner.steampowered.com` (old: sales, wishlist,
+players, playtime). A single session covers both.
 
-## Deploy (server sempre attivo)
+## Deploy (always-on server)
 
-Codice cross-platform. In produzione: passa a Postgres (`DATABASE_URL`), configura
-`STEAM_SHARED_SECRET` per il login non presidiato e schedula `collect-all`
+Cross-platform code. In production: switch to Postgres (`DATABASE_URL`), configure
+`STEAM_SHARED_SECRET` for unattended login and schedule `collect-all`
 (cron / systemd timer / Task Scheduler).
 
 ## Roadmap
 
-- [x] Auth automatica ai due portali + lista giochi
-- [x] Collector: vendite, wishlist, marketing, players, playtime, recensioni, traffico
-- [x] Dashboard Streamlit (panoramica + pagina per dataset)
-- [ ] Layer LLM (insight, anomalie, sentiment recensioni, Q&A in linguaggio naturale → SQL)
-- [ ] Scheduler, alert, scraper auto-riparanti
+- [x] Automatic auth to the two portals + game list
+- [x] Collectors: sales, wishlist, marketing, players, playtime, reviews, traffic
+- [x] Streamlit dashboard (overview + one page per dataset)
+- [ ] LLM layer (insights, anomalies, review sentiment, natural-language Q&A → SQL)
+- [ ] Scheduler, alerts, self-healing scrapers
 
-## Licenza
+## License
 
-[MIT](LICENSE). Contributi benvenuti — vedi [CONTRIBUTING.md](CONTRIBUTING.md).
+[MIT](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Note legali
+## Legal notes
 
-Raccogli **i tuoi** dati dal tuo portale partner: uso legittimo. Niente scraping di
-terze parti (es. SteamDB). Rispetta i Terms di Steam e usa rate limit gentili.
+Collect **your** data from your partner portal: legitimate use. No third-party
+scraping (e.g. SteamDB). Respect Steam's Terms and use gentle rate limits.

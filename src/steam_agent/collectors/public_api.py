@@ -1,8 +1,8 @@
-"""Collector per le fonti Steam PUBBLICHE (nessuna autenticazione richiesta).
+"""Collector for the PUBLIC Steam sources (no authentication required).
 
-- store appdetails: metadati, prezzo, tag, data di uscita
-- appreviews (summary): conteggio recensioni positive/negative + giudizio
-- GetNumberOfCurrentPlayers: giocatori concorrenti in tempo reale
+- store appdetails: metadata, price, tags, release date
+- appreviews (summary): positive/negative review count + rating
+- GetNumberOfCurrentPlayers: real-time concurrent players
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class PublicApiCollector(Collector):
                 out.append(RawRecord("store_appdetails", f"appid:{self.app_id}",
                                      entry["data"], self.app_id))
         except Exception as exc:  # noqa: BLE001
-            log.warning("appdetails fallito per %s: %s", self.app_id, exc)
+            log.warning("appdetails failed for %s: %s", self.app_id, exc)
 
     def _collect_reviews(self, client: httpx.Client, out: list[RawRecord]) -> None:
         try:
@@ -67,7 +67,7 @@ class PublicApiCollector(Collector):
                 out.append(RawRecord("appreviews_summary", f"appid:{self.app_id}",
                                      data.get("query_summary", {}), self.app_id))
         except Exception as exc:  # noqa: BLE001
-            log.warning("appreviews fallito per %s: %s", self.app_id, exc)
+            log.warning("appreviews failed for %s: %s", self.app_id, exc)
 
     def _collect_players(self, client: httpx.Client, out: list[RawRecord]) -> None:
         try:
@@ -81,4 +81,4 @@ class PublicApiCollector(Collector):
                 out.append(RawRecord("current_players", f"appid:{self.app_id}",
                                      {"player_count": resp.get("player_count")}, self.app_id))
         except Exception as exc:  # noqa: BLE001
-            log.warning("current_players fallito per %s: %s", self.app_id, exc)
+            log.warning("current_players failed for %s: %s", self.app_id, exc)

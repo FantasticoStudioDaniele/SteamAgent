@@ -1,8 +1,8 @@
-"""Accesso dati condiviso e helper UI per la dashboard Streamlit.
+"""Shared data access and UI helpers for the Streamlit dashboard.
 
-Tutte le pagine importano questo modulo (`import data`). Le tabelle vengono
-lette via SQLAlchemy (engine swappable: SQLite/Postgres) e messe in cache con
-`st.cache_data` (TTL 5 min); il pulsante "Aggiorna dati" svuota la cache.
+Every page imports this module (`import data`). Tables are read via SQLAlchemy
+(swappable engine: SQLite/Postgres) and cached with `st.cache_data` (TTL 5 min);
+the "Refresh data" button clears the cache.
 """
 from __future__ import annotations
 
@@ -20,23 +20,23 @@ from steam_agent.storage.db import engine, init_db
 init_db()
 alt.data_transformers.disable_max_rows()
 
-TTL = 300  # secondi
+TTL = 300  # seconds
 
 
-# ---------------------------------------------------------------- lettura DB
+# ---------------------------------------------------------------- DB reading
 @st.cache_data(ttl=TTL, show_spinner=False)
 def _read(table: str, date_cols: tuple[str, ...] = ()) -> pd.DataFrame:
-    """Legge un'intera tabella in DataFrame (i nomi tabella sono costanti nostre)."""
+    """Read an entire table into a DataFrame (table names are our own constants)."""
     try:
         return pd.read_sql_query(
             f"SELECT * FROM {table}", engine, parse_dates=list(date_cols)
         )
-    except Exception:  # tabella ancora assente
+    except Exception:  # table not present yet
         return pd.DataFrame()
 
 
 def _unescape(s: str) -> str:
-    """html.unescape ripetuto (alcuni nomi sono escaped piu' volte)."""
+    """Repeated html.unescape (some names are escaped multiple times)."""
     s = s or ""
     prev = None
     while prev != s:
@@ -45,18 +45,18 @@ def _unescape(s: str) -> str:
 
 
 def _norm(s: str) -> str:
-    """Forma normalizzata per il match nomi: minuscolo, senza punteggiatura."""
+    """Normalized form for name matching: lowercase, no punctuation."""
     return re.sub(r"[^a-z0-9]+", " ", _unescape(s).lower()).strip()
 
 
 @st.cache_data(ttl=TTL, show_spinner=False)
 def name_map() -> dict[int, str]:
-    """{appid: nome} dal config del portfolio (nomi de-escaped)."""
+    """{appid: name} from the portfolio config (de-escaped names)."""
     return {int(g["appid"]): _unescape(g["name"]) for g in load_games() if g.get("appid")}
 
 
 def _with_game(df: pd.DataFrame, col: str = "app_id") -> pd.DataFrame:
-    """Aggiunge la colonna `game` (nome leggibile) a partire da `app_id`."""
+    """Add the `game` column (readable name) derived from `app_id`."""
     if df.empty:
         df = df.copy()
         df["game"] = pd.Series(dtype="object")
@@ -123,8 +123,8 @@ def playtime() -> pd.DataFrame:
 
 @st.cache_data(ttl=TTL, show_spinner=False)
 def sales_with_game() -> pd.DataFrame:
-    """Vendite con `app_id`/`game` derivati dal `product_name` (match per nome,
-    prefisso piu' lungo: cosi' DLC/colonne sonore confluiscono nel gioco base)."""
+    """Sales with `app_id`/`game` derived from `product_name` (match by name,
+    longest prefix: so DLC/soundtracks roll up into the base game)."""
     df = sales()
     if df.empty:
         df = df.copy()
@@ -133,7 +133,7 @@ def sales_with_game() -> pd.DataFrame:
         return df
     df = df.copy()
     df["product_name"] = df["product_name"].fillna("").map(_unescape)
-    # catalogo normalizzato, dal nome piu' lungo al piu' corto (prefisso piu' specifico)
+    # normalized catalog, from longest to shortest name (most specific prefix)
     cat = sorted(((_norm(n), a, n) for a, n in name_map().items()), key=lambda t: -len(t[0]))
     exact = {nn: (a, n) for nn, a, n in cat}
     amap: dict[str, object] = {}
@@ -143,7 +143,7 @@ def sales_with_game() -> pd.DataFrame:
         if pn in exact:
             aid, g = exact[pn]
         else:
-            aid, g = pd.NA, prod or "(sconosciuto)"
+            aid, g = pd.NA, prod or "(unknown)"
             for nn, a, n in cat:
                 if nn and pn.startswith(nn):
                     aid, g = a, n
@@ -154,7 +154,7 @@ def sales_with_game() -> pd.DataFrame:
     return df
 
 
-# ------------------------------------------------------------- formattazione
+# ------------------------------------------------------------- formatting
 def fmt_int(n) -> str:
     try:
         return f"{int(round(float(n))):,}".replace(",", ".")
@@ -177,7 +177,7 @@ def fmt_pct(n) -> str:
 
 
 def mins_label(m) -> str:
-    """Minuti -> etichetta leggibile (10 min, 1 h, 2 h, ...)."""
+    """Minutes -> readable label (10 min, 1 h, 2 h, ...)."""
     m = int(m)
     if m < 60:
         return f"{m} min"
@@ -185,22 +185,22 @@ def mins_label(m) -> str:
     return f"{int(h)} h" if abs(h - round(h)) < 1e-9 else f"{h:.1f} h"
 
 
-# ------------------------------------------------------------------ widget UI
+# ------------------------------------------------------------------ UI widgets
 def kpis(items: list[tuple[str, str]]) -> None:
     cols = st.columns(len(items))
     for c, (label, value) in zip(cols, items):
         c.metric(label, value)
 
 
-def filter_games(df: pd.DataFrame, key: str, label: str = "Giochi") -> pd.DataFrame:
+def filter_games(df: pd.DataFrame, key: str, label: str = "Games") -> pd.DataFrame:
     if df.empty or "game" not in df:
         return df
     opts = sorted(df["game"].dropna().unique().tolist())
-    chosen = st.sidebar.multiselect(label, opts, key=key, placeholder="Tutti")
+    chosen = st.sidebar.multiselect(label, opts, key=key, placeholder="All")
     return df[df["game"].isin(chosen)] if chosen else df
 
 
-def filter_dates(df: pd.DataFrame, col: str, key: str, label: str = "Periodo") -> pd.DataFrame:
+def filter_dates(df: pd.DataFrame, col: str, key: str, label: str = "Period") -> pd.DataFrame:
     if df.empty or col not in df or df[col].dropna().empty:
         return df
     lo = df[col].min().date()
@@ -215,15 +215,15 @@ def filter_dates(df: pd.DataFrame, col: str, key: str, label: str = "Periodo") -
 
 def sidebar_refresh() -> None:
     st.sidebar.divider()
-    if st.sidebar.button("🔄 Aggiorna dati", width="stretch"):
+    if st.sidebar.button("🔄 Refresh data", width="stretch"):
         st.cache_data.clear()
         st.rerun()
-    st.sidebar.caption("Cache 5 min · dati locali")
+    st.sidebar.caption("Cache 5 min · local data")
 
 
 def download(df: pd.DataFrame, name: str) -> None:
     st.download_button(
-        "⬇️ Scarica CSV",
+        "⬇️ Download CSV",
         df.to_csv(index=False).encode("utf-8"),
         file_name=name,
         mime="text/csv",
@@ -231,4 +231,4 @@ def download(df: pd.DataFrame, name: str) -> None:
 
 
 def empty_note(what: str) -> None:
-    st.info(f"Nessun dato per **{what}**. Lancia il relativo `collect-…` dalla CLI.")
+    st.info(f"No data for **{what}**. Run the matching `collect-…` from the CLI.")

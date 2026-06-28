@@ -1,6 +1,6 @@
-"""Dump delle variabili globali JS (filtrate) + n. tabelle di una pagina partner.
+"""Dump of JS global variables (filtered) + number of tables of a partner page.
 
-Uso: uv run python scripts/dump_globals.py URL [pattern_regex]
+Usage: uv run python scripts/dump_globals.py URL [pattern_regex]
 """
 from __future__ import annotations
 

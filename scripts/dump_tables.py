@@ -1,6 +1,6 @@
-"""Dump tabelle (headers + prime righe) + link download di una pagina partner.
+"""Dump tables (headers + first rows) + download links of a partner page.
 
-Uso: uv run python scripts/dump_tables.py URL
+Usage: uv run python scripts/dump_tables.py URL
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ async def main() -> None:
                 return out.slice(0, 8);
             }"""
         )
-        print("tabelle:", len(data))
+        print("tables:", len(data))
         for tb in data:
             print(f"=== table {tb['ti']} ===")
             for r in tb["rows"]:

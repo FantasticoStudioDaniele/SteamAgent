@@ -1,45 +1,45 @@
-# Contribuire a SteamAgent
+# Contributing to SteamAgent
 
-Grazie per l'interesse! Di seguito come muoverti.
+Thanks for your interest! Here's how to get around.
 
-## Setup sviluppo
+## Development setup
 
 ```bash
-uv sync                              # include i dev-deps (pytest, ruff)
+uv sync                              # includes the dev-deps (pytest, ruff)
 uv run playwright install chromium
-uv run pytest -q                     # test
+uv run pytest -q                     # tests
 uv run ruff check src dashboard      # lint
 ```
 
-## Struttura del progetto
+## Project structure
 
-- `src/steam_agent/auth/` — login Playwright ai due portali + Steam Guard (TOTP/codice).
-- `src/steam_agent/collectors/` — un file per dataset. Pattern: una funzione
-  `fetch_<nome>(...)` async che ritorna righe-dict.
-- `src/steam_agent/storage/` — modelli SQLAlchemy (`models.py`) e persistenza
-  idempotente (`raw.py`, funzioni `save_<nome>`).
-- `src/steam_agent/cli.py` — comandi Typer (import "pigri" dentro i comandi che usano il browser).
-- `dashboard/` — Streamlit: `data.py` è il data-layer condiviso, `pages/` le pagine.
-- `scripts/` — strumenti di ispezione delle pagine del portale (`inspect_partner.py`,
-  `probe_marketing.py`, …): utili per scoprire dove vivono i dati.
+- `src/steam_agent/auth/` — Playwright login to the two portals + Steam Guard (TOTP/code).
+- `src/steam_agent/collectors/` — one file per dataset. Pattern: an async
+  `fetch_<name>(...)` function that returns dict-rows.
+- `src/steam_agent/storage/` — SQLAlchemy models (`models.py`) and idempotent
+  persistence (`raw.py`, `save_<name>` functions).
+- `src/steam_agent/cli.py` — Typer commands ("lazy" imports inside the commands that use the browser).
+- `dashboard/` — Streamlit: `data.py` is the shared data-layer, `pages/` the pages.
+- `scripts/` — portal page inspection tools (`inspect_partner.py`,
+  `probe_marketing.py`, …): handy for discovering where the data lives.
 
-## Aggiungere un nuovo collector
+## Adding a new collector
 
-1. Crea `collectors/<nome>.py` con `fetch_<nome>(...)`.
-2. Aggiungi il modello in `storage/models.py` e `save_<nome>` in `storage/raw.py`
-   (idempotente: full-refresh o upsert per chiave).
-3. Aggiungi il comando in `cli.py` (con import locali dentro la funzione).
-4. *(Opzionale)* loader in `dashboard/data.py` + pagina in `dashboard/pages/`.
-5. `uv run steam-agent init-db` per creare la tabella; testa su un singolo appid.
+1. Create `collectors/<name>.py` with `fetch_<name>(...)`.
+2. Add the model in `storage/models.py` and `save_<name>` in `storage/raw.py`
+   (idempotent: full-refresh or upsert by key).
+3. Add the command in `cli.py` (with local imports inside the function).
+4. *(Optional)* loader in `dashboard/data.py` + page in `dashboard/pages/`.
+5. `uv run steam-agent init-db` to create the table; test on a single appid.
 
-## Stile e regole
+## Style and rules
 
-- Ruff con `line-length = 100`. Lancia `ruff check` prima di aprire una PR.
-- **Mai** segreti nei commit: `.env`, `*.maFile`, `storage_state.json` e `data/`
-  sono già in `.gitignore`.
-- Rate limit gentili verso Steam; si raccolgono **solo** i dati del proprio portale.
+- Ruff with `line-length = 100`. Run `ruff check` before opening a PR.
+- **Never** commit secrets: `.env`, `*.maFile`, `storage_state.json` and `data/`
+  are already in `.gitignore`.
+- Gentle rate limits toward Steam; collect **only** the data from your own portal.
 
-## Pull request
+## Pull requests
 
-PR piccole e mirate, con una descrizione di cosa cambia e come l'hai testato
-(`pytest` verde, eventuali screenshot della dashboard).
+Small, focused PRs, with a description of what changes and how you tested it
+(`pytest` green, dashboard screenshots if any).

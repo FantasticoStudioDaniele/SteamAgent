@@ -1,11 +1,11 @@
-# Catalogo giochi del tuo account Steam partner.
+# Game catalog of your Steam partner account.
 #
-# NON serve compilarlo a mano: viene generato automaticamente da
+# You do NOT need to fill it in by hand: it's generated automatically by
 #   uv run steam-agent setup
-# oppure
+# or
 #   uv run steam-agent collect-games
-# che leggono la lista da https://partner.steamgames.com/apps/ e la salvano in
-# config/games.yaml (questo file .example è solo un riferimento di formato).
+# which read the list from https://partner.steamgames.com/apps/ and save it to
+# config/games.yaml (this .example file is only a format reference).
 games:
   - appid: 440
     name: Team Fortress 2

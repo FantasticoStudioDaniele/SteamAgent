@@ -1,10 +1,10 @@
-"""SteamAgent — Dashboard (Fase 4).
+"""SteamAgent — Dashboard (Phase 4).
 
-Avvio:  uv run streamlit run dashboard/app.py
-        (deps extra: uv sync --extra dashboard)
+Start:  uv run streamlit run dashboard/app.py
+        (extra deps: uv sync --extra dashboard)
 
-Pagina di panoramica: KPI di portfolio + andamenti principali + scorecard
-per gioco. Le pagine di dettaglio sono in `dashboard/pages/`.
+Overview page: portfolio KPIs + main trends + per-game scorecard.
+The detail pages live in `dashboard/pages/`.
 """
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ from steam_agent.settings import settings
 import data
 
 st.set_page_config(page_title="SteamAgent", page_icon="🎮", layout="wide")
-st.title("🎮 SteamAgent — Panoramica")
+st.title("🎮 SteamAgent — Overview")
 st.caption(
-    "Dati del tuo account developer Steam"
+    "Data from your Steam developer account"
     + (f" · {settings.studio_name}" if settings.studio_name else "")
 )
 
@@ -31,7 +31,7 @@ pt = data.playtime()
 
 if sales.empty and wl.empty and pl.empty and rv.empty:
     st.info(
-        "Database vuoto. Popola i dati dalla CLI, per es.:\n\n"
+        "Empty database. Populate the data from the CLI, e.g.:\n\n"
         "```\nuv run steam-agent collect-sales\nuv run steam-agent collect-wishlist\n"
         "uv run steam-agent collect-players\nuv run steam-agent collect-reviews\n```"
     )
@@ -48,24 +48,24 @@ n_games = len(data.name_map())
 
 data.kpis(
     [
-        ("Ricavi netti", data.fmt_money(rev_tot)),
-        ("Unità vendute", data.fmt_int(units)),
-        ("Wishlist nette", data.fmt_int(wl_net)),
-        ("Recensioni", data.fmt_int(rev_count)),
+        ("Net revenue", data.fmt_money(rev_tot)),
+        ("Units sold", data.fmt_int(units)),
+        ("Net wishlists", data.fmt_int(wl_net)),
+        ("Reviews", data.fmt_int(rev_count)),
         ("% positive", data.fmt_pct(pos)),
-        ("Picco concorrenti", data.fmt_int(peak)),
+        ("Peak concurrent", data.fmt_int(peak)),
     ]
 )
-st.caption(f"Portfolio: {n_games} giochi tracciati")
+st.caption(f"Portfolio: {n_games} games tracked")
 st.divider()
 
-# ------------------------------------------------------------ andamenti
+# ------------------------------------------------------------ trends
 c1, c2 = st.columns([3, 2])
 
 with c1:
-    st.subheader("Ricavi netti per mese")
+    st.subheader("Net revenue by month")
     if sales.empty:
-        data.empty_note("vendite")
+        data.empty_note("sales")
     else:
         m = sales.groupby("month", as_index=False)["net_sales_usd"].sum()
         chart = (
@@ -75,7 +75,7 @@ with c1:
                 x=alt.X("month:T", title=None),
                 y=alt.Y("net_sales_usd:Q", title="USD"),
                 tooltip=[
-                    alt.Tooltip("month:T", title="Mese"),
+                    alt.Tooltip("month:T", title="Month"),
                     alt.Tooltip("net_sales_usd:Q", title="USD", format=",.0f"),
                 ],
             )
@@ -84,9 +84,9 @@ with c1:
         st.altair_chart(chart, width="stretch")
 
 with c2:
-    st.subheader("Top giochi per ricavi")
+    st.subheader("Top games by revenue")
     if sales.empty:
-        data.empty_note("vendite")
+        data.empty_note("sales")
     else:
         g = (
             sales.groupby("game", as_index=False)["net_sales_usd"]
@@ -109,41 +109,41 @@ with c2:
         )
         st.altair_chart(chart, width="stretch")
 
-# --------------------------------------------------------- scorecard per gioco
+# --------------------------------------------------------- per-game scorecard
 st.divider()
-st.subheader("Scorecard per gioco")
+st.subheader("Per-game scorecard")
 
 nm = data.name_map()
-board = pd.DataFrame({"app_id": list(nm.keys()), "Gioco": list(nm.values())})
+board = pd.DataFrame({"app_id": list(nm.keys()), "Game": list(nm.values())})
 board["app_id"] = board["app_id"].astype("Int64")
 
 if not sales.empty:
     s = sales.dropna(subset=["app_id"]).groupby("app_id", as_index=False).agg(
-        Ricavi=("net_sales_usd", "sum"), Unità=("net_units", "sum")
+        Revenue=("net_sales_usd", "sum"), Units=("net_units", "sum")
     )
     board = board.merge(s, on="app_id", how="left")
 if not wl.empty:
     w = wl.groupby("app_id", as_index=False).agg(a=("adds", "sum"), d=("deletes", "sum"))
-    w["Wishlist_nette"] = w["a"] - w["d"]
-    board = board.merge(w[["app_id", "Wishlist_nette"]], on="app_id", how="left")
+    w["Net_wishlists"] = w["a"] - w["d"]
+    board = board.merge(w[["app_id", "Net_wishlists"]], on="app_id", how="left")
 if not pl.empty:
-    p = pl.groupby("app_id", as_index=False).agg(Picco=("peak_concurrent_users", "max"))
+    p = pl.groupby("app_id", as_index=False).agg(Peak=("peak_concurrent_users", "max"))
     board = board.merge(p, on="app_id", how="left")
 if not rv.empty:
     r = rv.groupby("app_id", as_index=False).agg(
-        Recensioni=("recommendation_id", "count"), pos=("voted_up", "mean")
+        Reviews=("recommendation_id", "count"), pos=("voted_up", "mean")
     )
     r["Positive_%"] = (r["pos"] * 100).round(0)
-    board = board.merge(r[["app_id", "Recensioni", "Positive_%"]], on="app_id", how="left")
+    board = board.merge(r[["app_id", "Reviews", "Positive_%"]], on="app_id", how="left")
 if not pt.empty:
     latest = pt.sort_values("snapshot_date").groupby("app_id", as_index=False).tail(1)
     board = board.merge(
-        latest[["app_id", "median_minutes"]].rename(columns={"median_minutes": "Mediana_min"}),
+        latest[["app_id", "median_minutes"]].rename(columns={"median_minutes": "Median_min"}),
         on="app_id",
         how="left",
     )
 
-sort_col = "Ricavi" if "Ricavi" in board else "Gioco"
+sort_col = "Revenue" if "Revenue" in board else "Game"
 board = board.sort_values(sort_col, ascending=False, na_position="last").drop(columns=["app_id"])
 
 st.dataframe(
@@ -151,13 +151,13 @@ st.dataframe(
     width="stretch",
     hide_index=True,
     column_config={
-        "Ricavi": st.column_config.NumberColumn("Ricavi", format="$%.0f"),
-        "Unità": st.column_config.NumberColumn("Unità", format="%.0f"),
-        "Wishlist_nette": st.column_config.NumberColumn("Wishlist nette", format="%.0f"),
-        "Picco": st.column_config.NumberColumn("Picco conc.", format="%.0f"),
-        "Recensioni": st.column_config.NumberColumn("Recensioni", format="%.0f"),
+        "Revenue": st.column_config.NumberColumn("Revenue", format="$%.0f"),
+        "Units": st.column_config.NumberColumn("Units", format="%.0f"),
+        "Net_wishlists": st.column_config.NumberColumn("Net wishlists", format="%.0f"),
+        "Peak": st.column_config.NumberColumn("Peak conc.", format="%.0f"),
+        "Reviews": st.column_config.NumberColumn("Reviews", format="%.0f"),
         "Positive_%": st.column_config.NumberColumn("% pos.", format="%.0f%%"),
-        "Mediana_min": st.column_config.NumberColumn("Mediana (min)", format="%.0f"),
+        "Median_min": st.column_config.NumberColumn("Median (min)", format="%.0f"),
     },
 )
 data.download(board, "scorecard.csv")

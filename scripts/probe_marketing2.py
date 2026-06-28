@@ -1,4 +1,4 @@
-"""Verifica formato dati live jqplot + range lifetime per navtrafficstats."""
+"""Check live jqplot data format + lifetime range for navtrafficstats."""
 from __future__ import annotations
 
 import asyncio

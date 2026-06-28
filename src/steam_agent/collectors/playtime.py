@@ -1,10 +1,10 @@
-"""Collector playtime (lifetime) dal VECCHIO portale, via scraping di 2 tabelle HTML.
+"""Playtime (lifetime) collector from the OLD portal, via scraping 2 HTML tables.
 
-`app/playtime/<appid>/` mostra statistiche di tempo di gioco LIFETIME:
-- Sommario: utenti misurati, tempo medio/mediano.
-- Distribuzione: % di utenti per soglia minima di tempo giocato (10m, 30m, 1h, ...).
-Niente CSV: si leggono le tabelle. E' uno SNAPSHOT (non serie storica): lo si salva
-datato (snapshot_date) e lo si puo' rilanciare periodicamente per vedere l'evoluzione.
+`app/playtime/<appid>/` shows LIFETIME play-time statistics:
+- Summary: measured users, average/median time.
+- Distribution: % of users per minimum played-time threshold (10m, 30m, 1h, ...).
+No CSV: the tables are read. It is a SNAPSHOT (not a history): it is saved
+dated (snapshot_date) and can be re-run periodically to see the evolution.
 """
 from __future__ import annotations
 
@@ -72,16 +72,16 @@ async def _fetch_one(page, app_id: int, snapshot_date: date) -> dict | None:
             await page.goto(f"{OLD}/app/playtime/{app_id}/", wait_until="domcontentloaded")
             tables = await page.evaluate(_TABLES_JS)
             snap = parse_playtime(tables, app_id, snapshot_date)
-            log.info("Playtime appid %s: %s", app_id, "ok" if snap else "nessun dato")
+            log.info("Playtime appid %s: %s", app_id, "ok" if snap else "no data")
             return snap
         except Exception as exc:  # noqa: BLE001
-            log.warning("Playtime appid %s tentativo %d: %s", app_id, attempt + 1, exc)
+            log.warning("Playtime appid %s attempt %d: %s", app_id, attempt + 1, exc)
             await asyncio.sleep(2)
     return None
 
 
 async def fetch_playtime(app_ids: list[int]) -> dict[int, dict | None]:
-    """Snapshot playtime lifetime per ogni app (scraping tabelle)."""
+    """Lifetime playtime snapshot for each app (table scraping)."""
     snapshot_date = datetime.now(timezone.utc).date()
     out: dict[int, dict | None] = {}
     async with authenticated_page(portal="old") as page:

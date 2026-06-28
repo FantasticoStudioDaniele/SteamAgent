@@ -1,11 +1,11 @@
-"""Dev tool: ispeziona una pagina del portale partner con la sessione salvata.
+"""Dev tool: inspect a page of the partner portal with the saved session.
 
-Uso:
+Usage:
     uv run python scripts/inspect_partner.py [URL]
 
-Stampa URL finale, titolo, intestazioni, link con appid e link di navigazione,
-per individuare la pagina/struttura giusta da cui leggere i dati partner.
-Richiede una storage_state valida (esegui prima `steam-agent login`).
+Prints final URL, title, headings, links with appid and navigation links,
+to identify the right page/structure from which to read the partner data.
+Requires a valid storage_state (run `steam-agent login` first).
 """
 from __future__ import annotations
 
@@ -51,19 +51,19 @@ async def main() -> None:
         print("\nTOTAL LINKS:", len(links))
 
         apps: dict[str, str] = {}
-        for l in links:
-            m = _APPID.search(l["href"] or "")
+        for link in links:
+            m = _APPID.search(link["href"] or "")
             if m:
-                apps.setdefault(m.group(1), l["text"])
+                apps.setdefault(m.group(1), link["text"])
         print("\nAPP-ID LINKS (appid -> text):")
         for a, t in apps.items():
             print("   ", a, "->", repr(t))
 
         print("\nNAV-ish LINKS:")
         seen: set[tuple[str, str]] = set()
-        for l in links:
-            t = l["text"] or ""
-            href = l["href"] or ""
+        for link in links:
+            t = link["text"] or ""
+            href = link["href"] or ""
             if t and _KW.search(t) and (t, href) not in seen:
                 seen.add((t, href))
                 print("   ", repr(t), "->", href)

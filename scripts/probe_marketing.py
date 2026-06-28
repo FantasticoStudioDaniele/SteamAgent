@@ -1,14 +1,13 @@
-"""Dev tool: ispeziona la sezione Marketing (Visits/Impressions Over Time) di
-navtrafficstats per capire come sono incapsulati i dati delle due serie storiche.
+"""Dev tool: inspect the Marketing section (Visits/Impressions Over Time) of
+navtrafficstats to understand how the data of the two historical series is encapsulated.
 
-Uso: uv run python scripts/probe_marketing.py [appid]
-Salva script inline e risposte di rete in scratchpad per analisi.
+Usage: uv run python scripts/probe_marketing.py [appid]
+Saves inline scripts and network responses to scratchpad for analysis.
 """
 from __future__ import annotations
 
 import asyncio
 import sys
-from pathlib import Path
 
 from playwright.async_api import async_playwright
 
@@ -49,13 +48,13 @@ async def main() -> None:
         print("FINAL URL:", page.url)
         print("TITLE:", await page.title())
 
-        # Tutti gli script inline, con flag se contengono keyword interessanti
+        # All inline scripts, with flag if they contain interesting keywords
         scripts = await page.eval_on_selector_all(
             "script",
             "els => els.map(e => ({src: e.src || '', text: e.textContent || ''}))",
         )
         inline = [s for s in scripts if not s["src"] and s["text"].strip()]
-        print(f"\nINLINE SCRIPTS: {len(inline)} (su {len(scripts)} totali)")
+        print(f"\nINLINE SCRIPTS: {len(inline)} (out of {len(scripts)} total)")
 
         hit_blocks = []
         for i, s in enumerate(inline):
@@ -65,11 +64,11 @@ async def main() -> None:
                 hit_blocks.append((i, hits, s["text"]))
                 print(f"  script #{i}: {len(s['text'])} char, match={hits}")
 
-        # Salva i blocchi interessanti
+        # Save the interesting blocks
         for i, hits, text in hit_blocks:
             (OUT / f"mk_script_{i}.js").write_text(text, encoding="utf-8")
 
-        # Globali JS che sembrano dati delle serie
+        # JS globals that look like series data
         keys = await page.evaluate(
             "() => Object.keys(window).filter(k => "
             "/traffic|visit|impression|g_rg|chart|plot|nav|stat|series/i.test(k))"

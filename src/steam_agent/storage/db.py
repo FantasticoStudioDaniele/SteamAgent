@@ -1,4 +1,4 @@
-"""Engine e sessione SQLAlchemy. Storage swappable via DATABASE_URL."""
+"""SQLAlchemy engine and session. Storage swappable via DATABASE_URL."""
 from __future__ import annotations
 
 from sqlalchemy import create_engine
@@ -12,5 +12,5 @@ SessionLocal = sessionmaker(bind=engine, future=True, expire_on_commit=False)
 
 
 def init_db() -> None:
-    """Crea le tabelle se non esistono (idempotente)."""
+    """Create the tables if they do not exist (idempotent)."""
     Base.metadata.create_all(engine)

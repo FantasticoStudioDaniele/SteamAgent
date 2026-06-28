@@ -1,4 +1,4 @@
-"""Wishlist — aggiunte/rimozioni giornaliere, saldo cumulato, conversioni."""
+"""Wishlist — daily additions/removals, cumulative balance, conversions."""
 from __future__ import annotations
 
 import altair as alt
@@ -18,7 +18,7 @@ if df.empty:
 df = data.filter_games(df, key="wl_games")
 df = data.filter_dates(df, "date", key="wl_dates")
 if df.empty:
-    st.warning("Nessuna riga con i filtri correnti.")
+    st.warning("No rows with the current filters.")
     data.sidebar_refresh()
     st.stop()
 
@@ -29,56 +29,56 @@ net = adds - dels
 
 data.kpis(
     [
-        ("Aggiunte", data.fmt_int(adds)),
-        ("Rimozioni", data.fmt_int(dels)),
-        ("Saldo netto", data.fmt_int(net)),
-        ("Acquisti/attivazioni", data.fmt_int(conv)),
+        ("Additions", data.fmt_int(adds)),
+        ("Removals", data.fmt_int(dels)),
+        ("Net balance", data.fmt_int(net)),
+        ("Purchases/activations", data.fmt_int(conv)),
     ]
 )
 st.divider()
 
-# Andamento giornaliero adds vs deletes (aggregato sui giochi selezionati)
-st.subheader("Aggiunte vs rimozioni (giornaliero)")
+# Daily adds vs deletes trend (aggregated over the selected games)
+st.subheader("Additions vs removals (daily)")
 daily = df.groupby("date", as_index=False).agg(
-    Aggiunte=("adds", "sum"),
-    Rimozioni=("deletes", "sum"),
-    Acquisti=("purchases_activations", "sum"),
+    Additions=("adds", "sum"),
+    Removals=("deletes", "sum"),
+    Purchases=("purchases_activations", "sum"),
 )
-long = daily.melt("date", value_vars=["Aggiunte", "Rimozioni", "Acquisti"],
-                  var_name="tipo", value_name="valore")
+long = daily.melt("date", value_vars=["Additions", "Removals", "Purchases"],
+                  var_name="type", value_name="count")
 st.altair_chart(
     alt.Chart(long)
     .mark_line()
     .encode(
         x=alt.X("date:T", title=None),
-        y=alt.Y("valore:Q", title="Conteggio"),
-        color=alt.Color("tipo:N", title=None,
-                        scale=alt.Scale(domain=["Aggiunte", "Rimozioni", "Acquisti"],
+        y=alt.Y("count:Q", title="Count"),
+        color=alt.Color("type:N", title=None,
+                        scale=alt.Scale(domain=["Additions", "Removals", "Purchases"],
                                         range=["#66c0f4", "#e06666", "#93c47d"])),
-        tooltip=["date:T", "tipo:N", alt.Tooltip("valore:Q", format=",.0f")],
+        tooltip=["date:T", "type:N", alt.Tooltip("count:Q", format=",.0f")],
     )
     .properties(height=300),
     width="stretch",
 )
 
-# Saldo wishlist cumulato (stima outstanding = cumsum(adds - deletes - conversioni))
-st.subheader("Saldo wishlist cumulato (stima outstanding)")
+# Cumulative wishlist balance (outstanding estimate = cumsum(adds - deletes - conversions))
+st.subheader("Cumulative wishlist balance (outstanding estimate)")
 daily = daily.sort_values("date")
-daily["Outstanding"] = (daily["Aggiunte"] - daily["Rimozioni"] - daily["Acquisti"]).cumsum()
+daily["Outstanding"] = (daily["Additions"] - daily["Removals"] - daily["Purchases"]).cumsum()
 st.altair_chart(
     alt.Chart(daily)
     .mark_area(color="#66c0f4", opacity=0.5, line={"color": "#66c0f4"})
     .encode(
         x=alt.X("date:T", title=None),
-        y=alt.Y("Outstanding:Q", title="Wishlist attive (stima)"),
+        y=alt.Y("Outstanding:Q", title="Active wishlists (estimate)"),
         tooltip=["date:T", alt.Tooltip("Outstanding:Q", format=",.0f")],
     )
     .properties(height=280),
     width="stretch",
 )
-st.caption("Stima: cumulata di aggiunte − rimozioni − acquisti/attivazioni.")
+st.caption("Estimate: cumulative additions − removals − purchases/activations.")
 
-st.subheader("Top giochi per aggiunte")
+st.subheader("Top games by additions")
 g = (
     df.groupby("game", as_index=False)["adds"]
     .sum()
@@ -89,7 +89,7 @@ st.altair_chart(
     alt.Chart(g)
     .mark_bar(color="#66c0f4")
     .encode(
-        x=alt.X("adds:Q", title="Aggiunte"),
+        x=alt.X("adds:Q", title="Additions"),
         y=alt.Y("game:N", sort="-x", title=None),
         tooltip=["game:N", alt.Tooltip("adds:Q", format=",.0f")],
     )
@@ -97,7 +97,7 @@ st.altair_chart(
     width="stretch",
 )
 
-st.subheader("Dettaglio")
+st.subheader("Detail")
 st.dataframe(
     df[["date", "game", "adds", "deletes", "purchases_activations", "gifts"]]
     .sort_values("date", ascending=False),

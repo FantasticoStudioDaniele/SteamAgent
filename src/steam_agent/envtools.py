@@ -1,4 +1,4 @@
-"""Aggiornamento idempotente del file `.env` (preserva commenti e altre righe)."""
+"""Idempotent update of the `.env` file (preserves comments and other lines)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +9,7 @@ ENV_PATH = PROJECT_ROOT / ".env"
 
 
 def update_env(updates: dict[str, str], path: Path = ENV_PATH) -> Path:
-    """Crea/aggiorna le chiavi indicate nel `.env`, lasciando intatto il resto."""
+    """Creates/updates the given keys in the `.env`, leaving the rest intact."""
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     out: list[str] = []
     seen: set[str] = set()

@@ -1,7 +1,7 @@
-"""Collector recensioni dalla API PUBBLICA appreviews (nessuna autenticazione).
+"""Reviews collector from the PUBLIC appreviews API (no authentication).
 
-Per ogni app pagina le recensioni (filter=recent, 100/pagina) via cursore e ne
-estrae testo + voto + metadati, base per sentiment/temi via LLM (Fase 5).
+For each app it pages through the reviews (filter=recent, 100/page) via cursor and
+extracts text + vote + metadata, the basis for sentiment/themes via LLM (Phase 5).
 Endpoint: https://store.steampowered.com/appreviews/<appid>?json=1&...
 """
 from __future__ import annotations
@@ -47,7 +47,7 @@ def _parse_review(r: dict, app_id: int) -> dict:
 
 
 def fetch_reviews(app_id: int, max_reviews: int = 2000) -> list[dict]:
-    """Pagina le recensioni (cronologiche) fino a `max_reviews` e le restituisce."""
+    """Page through the reviews (chronological) up to `max_reviews` and return them."""
     out: list[dict] = []
     cursor = "*"
     seen: set[str] = set()

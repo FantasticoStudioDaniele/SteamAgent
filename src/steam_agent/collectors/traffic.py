@@ -1,19 +1,19 @@
-"""Collector del traffico pagina store dal portale partner (richiede sessione).
+"""Collector for store page traffic from the partner portal (requires a session).
 
-Fonte: la pagina "Marketing & Visibility" (`navtrafficstats/<appid>`) espone un
-export CSV con il breakdown per sorgente: Page/Category, Page/Feature ->
+Source: the "Marketing & Visibility" page (`navtrafficstats/<appid>`) exposes a
+CSV export with the breakdown by source: Page/Category, Page/Feature ->
 Impressions, Visits, Owner Impressions, Owner Visits.
 
-Dettagli scoperti sul campo:
-- Il CSV rispetta l'intervallo passato come query: `preset_date_range` (yesterday,
-  1week, 1month, 3months, 6months, 1year, lifetime) oppure `custom` +
-  `start_date`/`end_date` in formato MM/DD/YYYY.
-- MA serve prima "scaldare" la sessione visitando una pagina del portale (imposta
-  il token partner via login/settoken); senza, il CSV torna vuoto.
+Details discovered in the field:
+- The CSV honors the range passed as a query: `preset_date_range` (yesterday,
+  1week, 1month, 3months, 6months, 1year, lifetime) or `custom` +
+  `start_date`/`end_date` in MM/DD/YYYY format.
+- BUT you first need to "warm" the session by visiting a portal page (it sets
+  the partner token via login/settoken); without it, the CSV comes back empty.
 
-Strategia: un giorno alla volta (custom single-day) per ogni app -> serie storica
-giornaliera del traffico per sorgente. I totali giornalieri = somma sulle righe.
-Il CSV grezzo viene archiviato in data/raw/traffic/<appid>/<YYYY-MM-DD>.csv.
+Strategy: one day at a time (custom single-day) for each app -> daily history
+of traffic by source. Daily totals = sum over the rows.
+The raw CSV is archived in data/raw/traffic/<appid>/<YYYY-MM-DD>.csv.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _to_int(value: str) -> int:
 
 
 def parse_traffic_csv(text: str, app_id: int, day: date) -> list[dict]:
-    """Parsa il CSV traffico in righe pronte per il DB."""
+    """Parse the traffic CSV into rows ready for the DB."""
     reader = csv.reader(io.StringIO(text.lstrip("﻿")))
     next(reader, None)  # header
     rows: list[dict] = []
@@ -66,7 +66,7 @@ def _archive_raw(app_id: int, day: date, text: str) -> None:
 
 
 async def fetch_traffic(app_ids: list[int], day: date) -> dict[int, list[dict]]:
-    """Per ogni app scarica il CSV traffico del giorno `day` e ritorna le righe."""
+    """For each app download the traffic CSV for day `day` and return the rows."""
     out: dict[int, list[dict]] = {}
     d = day.strftime("%m/%d/%Y")
     async with authenticated_page() as page:
@@ -75,7 +75,7 @@ async def fetch_traffic(app_ids: list[int], day: date) -> dict[int, list[dict]]:
             base = _TRAFFIC_URL.format(appid=app_id)
             try:
                 if not warmed:
-                    # Scalda la sessione partner una volta (imposta il token).
+                    # Warm the partner session once (sets the token).
                     await page.goto(base, wait_until="networkidle")
                     warmed = True
                 url = (
@@ -85,15 +85,15 @@ async def fetch_traffic(app_ids: list[int], day: date) -> dict[int, list[dict]]:
                 resp = await page.context.request.get(url)
                 text = await resp.text()
                 if resp.status != 200 or "<html" in text[:200].lower():
-                    log.warning("Traffico appid %s: risposta non valida (status %s).",
+                    log.warning("Traffic appid %s: invalid response (status %s).",
                                 app_id, resp.status)
                     out[app_id] = []
                     continue
                 _archive_raw(app_id, day, text)
                 out[app_id] = parse_traffic_csv(text, app_id, day)
-                log.info("Traffico appid %s (%s): %d righe.", app_id, day, len(out[app_id]))
-                await asyncio.sleep(0.4)  # gentile sui server Steam
+                log.info("Traffic appid %s (%s): %d rows.", app_id, day, len(out[app_id]))
+                await asyncio.sleep(0.4)  # gentle on the Steam servers
             except Exception as exc:  # noqa: BLE001
-                log.warning("Traffico appid %s fallito: %s", app_id, exc)
+                log.warning("Traffic appid %s failed: %s", app_id, exc)
                 out[app_id] = []
     return out

@@ -1,7 +1,7 @@
-# Normalizza i fine-riga a LF nel repo (coerenza cross-platform)
+# Normalize line endings to LF in the repo (cross-platform consistency)
 * text=auto eol=lf
 
-# Binari: nessuna conversione
+# Binaries: no conversion
 *.png binary
 *.gif binary
 *.jpg binary

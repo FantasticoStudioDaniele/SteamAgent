@@ -1,4 +1,4 @@
-"""Ispeziona owners pie + countries bar (plotOwners/plotCountries) su navtrafficstats."""
+"""Inspect owners pie + countries bar (plotOwners/plotCountries) on navtrafficstats."""
 from __future__ import annotations
 
 import asyncio

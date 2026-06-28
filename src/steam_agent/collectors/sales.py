@@ -1,16 +1,16 @@
-"""Collector vendite dal VECCHIO portale (report finanziari).
+"""Sales collector from the OLD portal (financial reports).
 
-Fonte: `report_csv.php` con `QueryPartnerSalesByCountry` (publisher-wide). Per un
-intervallo di date restituisce un CSV con una riga per (Country, Sku, Platform):
-Net Units Sold + Net Steam Sales (USD). SKU = "Nome (packageId)".
+Source: `report_csv.php` with `QueryPartnerSalesByCountry` (publisher-wide). For a
+date range it returns a CSV with one row per (Country, Sku, Platform):
+Net Units Sold + Net Steam Sales (USD). SKU = "Name (packageId)".
 
-Strategia: UNA richiesta PER MESE (publisher-wide, tutti i prodotti) -> serie
-storica mensile delle vendite per prodotto/paese/piattaforma. Warm-once basta
-(report publisher-wide), ma report_csv.php e' rate-limited -> retry-pass come per
-le wishlist. Raw archiviato in data/raw/sales/<YYYY-MM>.csv.
+Strategy: ONE request PER MONTH (publisher-wide, all products) -> monthly
+history of sales by product/country/platform. Warm-once is enough
+(publisher-wide report), but report_csv.php is rate-limited -> retry passes as for
+wishlist. Raw archived in data/raw/sales/<YYYY-MM>.csv.
 
-NB: "Net Steam Sales" e' l'incasso lordo al netto di refund/IVA; la quota partner
-(~70%) e' nella tabella HTML del report mensile (eventuale estensione futura).
+Note: "Net Steam Sales" is the gross revenue net of refunds/VAT; the partner share
+(~70%) is in the HTML table of the monthly report (possible future extension).
 """
 from __future__ import annotations
 
@@ -111,24 +111,24 @@ async def _fetch_month(page, month: date) -> tuple[list[dict], str]:
         if resp.status == 200 and "Country,Sku" in text[:600]:
             rows = parse_sales_csv(text, month)
             _archive_raw(month, text)
-            log.info("Vendite %s: %d righe.", month.strftime("%Y-%m"), len(rows))
+            log.info("Sales %s: %d rows.", month.strftime("%Y-%m"), len(rows))
             return rows, ("ok" if rows else "empty")
         return [], "fail"
     except Exception as exc:  # noqa: BLE001
-        log.warning("Vendite %s: %s", month.strftime("%Y-%m"), exc)
+        log.warning("Sales %s: %s", month.strftime("%Y-%m"), exc)
         return [], "fail"
 
 
 async def fetch_sales(months: list[date], on_result=None) -> dict[date, list[dict]]:
-    """Per ogni mese scarica le vendite per paese (tutti i prodotti), con retry-pass.
+    """For each month download sales by country (all products), with retry passes.
 
-    Se `on_result(month, rows)` e' fornito, viene chiamato appena un mese e' pronto
-    (salvataggio incrementale: un'interruzione non perde i mesi gia' scaricati).
+    If `on_result(month, rows)` is provided, it is called as soon as a month is ready
+    (incremental saving: an interruption does not lose the months already downloaded).
     """
     out: dict[date, list[dict]] = {}
     pending = list(months)
     async with authenticated_page(portal="old") as page:
-        # Warm-once del vecchio portale (report publisher-wide).
+        # Warm-once of the old portal (publisher-wide report).
         await page.goto(
             f"{OLD}/partner_report2.php?partnerid={settings.steam_partner_id}",
             wait_until="networkidle",
@@ -137,7 +137,7 @@ async def fetch_sales(months: list[date], on_result=None) -> dict[date, list[dic
             if not pending:
                 break
             if pass_num > 0:
-                log.info("Retry vendite: %d mesi rimasti (attesa anti-throttle)...", len(pending))
+                log.info("Retry sales: %d months remaining (anti-throttle wait)...", len(pending))
                 await asyncio.sleep(25)
             failed: list[date] = []
             for month in pending:
@@ -152,5 +152,5 @@ async def fetch_sales(months: list[date], on_result=None) -> dict[date, list[dic
             pending = failed
         for month in pending:
             out[month] = []
-            log.warning("Vendite %s: nessun dato dopo i retry.", month.strftime("%Y-%m"))
+            log.warning("Sales %s: no data after retries.", month.strftime("%Y-%m"))
     return out

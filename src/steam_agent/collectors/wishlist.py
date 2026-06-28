@@ -1,17 +1,17 @@
-"""Collector wishlist dal VECCHIO portale (partner.steampowered.com).
+"""Wishlist collector from the OLD portal (partner.steampowered.com).
 
-La pagina `app/wishlist/<appid>/` espone un export CSV via `report_csv.php` con la
-query `QueryWishlistActionsForCSV`. Restituisce la SERIE STORICA GIORNALIERA
-COMPLETA in una sola richiesta:
+The `app/wishlist/<appid>/` page exposes a CSV export via `report_csv.php` with the
+`QueryWishlistActionsForCSV` query. It returns the COMPLETE DAILY HISTORY
+in a single request:
 
     DateLocal, Game, Adds, Deletes, PurchasesAndActivations, Gifts
 
-Quindi basta 1 richiesta per gioco per tutto lo storico. Il "saldo wishlist"
-(outstanding) = somma cumulativa di (Adds - Deletes - PurchasesAndActivations -
-Gifts), calcolabile in fase di analisi.
+So a single request per game covers the whole history. The "wishlist balance"
+(outstanding) = cumulative sum of (Adds - Deletes - PurchasesAndActivations -
+Gifts), computable at analysis time.
 
-Come per il traffico, serve "scaldare" la sessione del vecchio portale visitando
-una pagina prima di scaricare i CSV. Il raw viene archiviato in
+As with traffic, you need to "warm" the old portal session by visiting a
+page before downloading the CSVs. The raw is archived in
 data/raw/wishlist/<appid>/<start>_to_<end>.csv.
 """
 from __future__ import annotations
@@ -44,7 +44,7 @@ def _csv_url(app_id: int, date_start: str, date_end: str) -> str:
 
 
 def parse_wishlist_csv(text: str, app_id: int) -> list[dict]:
-    """Parsa il CSV wishlist (salta le righe di intestazione fino a 'DateLocal')."""
+    """Parse the wishlist CSV (skip the header rows up to 'DateLocal')."""
     reader = csv.reader(io.StringIO(text))
     started = False
     rows: list[dict] = []
@@ -83,11 +83,11 @@ def _archive_raw(app_id: int, text: str, date_start: str, date_end: str) -> None
 async def _fetch_one(
     page, app_id: int, date_start: str, date_end: str, warm: str
 ) -> tuple[list[dict], str]:
-    """Scarica il CSV wishlist di una app (warm per-app obbligatorio sul vecchio
-    portale). Ritorna (righe, stato) con stato in {"ok", "empty", "fail"}:
-    - ok    = CSV valido con dati
-    - empty = CSV valido ma senza righe (app senza wishlist: demo/DLC) -> niente retry
-    - fail  = risposta non valida (probabile throttling) -> da riprovare
+    """Download the wishlist CSV for one app (per-app warm is mandatory on the old
+    portal). Returns (rows, status) with status in {"ok", "empty", "fail"}:
+    - ok    = valid CSV with data
+    - empty = valid CSV but no rows (app without wishlist: demo/DLC) -> no retry
+    - fail  = invalid response (likely throttling) -> to be retried
     """
     try:
         await page.goto(f"{OLD}/app/wishlist/{app_id}/", wait_until=warm)
@@ -96,7 +96,7 @@ async def _fetch_one(
         if resp.status == 200 and "DateLocal" in text[:600]:
             rows = parse_wishlist_csv(text, app_id)
             _archive_raw(app_id, text, date_start, date_end)
-            log.info("Wishlist appid %s: %d giorni.", app_id, len(rows))
+            log.info("Wishlist appid %s: %d days.", app_id, len(rows))
             return rows, ("ok" if rows else "empty")
         return [], "fail"
     except Exception as exc:  # noqa: BLE001
@@ -107,10 +107,10 @@ async def _fetch_one(
 async def fetch_wishlist(
     app_ids: list[int], date_start: str = "2010-01-01", date_end: str | None = None
 ) -> dict[int, list[dict]]:
-    """Storico wishlist completo per ogni app, robusto al rate-limiting del portale.
+    """Complete wishlist history for each app, robust to the portal's rate limiting.
 
-    Passa 1 veloce; poi fino a 2 retry-pass (con attesa anti-throttle) solo sulle
-    app risultate 'fail'. Le app 'empty' (demo/DLC senza wishlist) non si riprovano.
+    One fast pass; then up to 2 retry passes (with anti-throttle wait) only on the
+    apps that came back 'fail'. The 'empty' apps (demo/DLC without wishlist) are not retried.
     """
     date_end = date_end or datetime.now(timezone.utc).date().isoformat()
     out: dict[int, list[dict]] = {}
@@ -121,7 +121,7 @@ async def fetch_wishlist(
                 break
             warm = "domcontentloaded" if pass_num == 0 else "networkidle"
             if pass_num > 0:
-                log.info("Retry wishlist: %d app rimaste (attesa anti-throttle)...", len(pending))
+                log.info("Retry wishlist: %d apps remaining (anti-throttle wait)...", len(pending))
                 await asyncio.sleep(25)
             failed: list[int] = []
             for app_id in pending:
@@ -134,5 +134,5 @@ async def fetch_wishlist(
             pending = failed
         for app_id in pending:
             out[app_id] = []
-            log.warning("Wishlist appid %s: nessun dato dopo i retry (throttling?).", app_id)
+            log.warning("Wishlist appid %s: no data after retries (throttling?).", app_id)
     return out

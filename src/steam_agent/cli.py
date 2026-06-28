@@ -1,4 +1,4 @@
-"""CLI di SteamAgent (typer)."""
+"""SteamAgent CLI (typer)."""
 from __future__ import annotations
 
 import asyncio
@@ -23,74 +23,74 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
 )
 console = Console()
-app = typer.Typer(add_completion=False, help="SteamAgent — raccolta dati Steam developer.")
+app = typer.Typer(add_completion=False, help="SteamAgent — Steam developer data collection.")
 
 
 @app.command("init-db")
 def init_db_cmd() -> None:
-    """Crea le tabelle del database."""
+    """Create the database tables."""
     init_db()
-    console.print(f"[green]DB pronto:[/] {settings.database_url}")
+    console.print(f"[green]DB ready:[/] {settings.database_url}")
 
 
 @app.command("collect-public")
 def collect_public(
     appid: int = typer.Option(None, help="AppID; default = SMOKE_TEST_APPID"),
 ) -> None:
-    """Raccoglie i dati pubblici per un appid e salva raw + snapshot."""
+    """Collect the public data for an appid and save raw + snapshot."""
     app_id = appid or settings.smoke_test_appid
-    console.print(f"Raccolta dati pubblici per appid [bold]{app_id}[/]...")
+    console.print(f"Collecting public data for appid [bold]{app_id}[/]...")
     records = PublicApiCollector(app_id).collect()
     n = save_raw(records)
     snap = build_snapshot(app_id, records)
     save_snapshot(snap)
-    console.print(f"[green]OK[/] — {n} payload grezzi salvati.")
+    console.print(f"[green]OK[/] — {n} raw payloads saved.")
 
     table = Table(title=f"Snapshot appid {app_id}")
-    table.add_column("Campo")
-    table.add_column("Valore")
-    table.add_row("Nome", str(snap.name))
-    table.add_row("Giocatori ora", str(snap.current_players))
-    table.add_row("Recensioni totali", str(snap.reviews_total))
-    table.add_row("Recensioni positive", str(snap.reviews_positive))
-    table.add_row("Giudizio", str(snap.review_score_desc))
-    table.add_row("Prezzo", str(snap.price))
+    table.add_column("Field")
+    table.add_column("Value")
+    table.add_row("Name", str(snap.name))
+    table.add_row("Players now", str(snap.current_players))
+    table.add_row("Total reviews", str(snap.reviews_total))
+    table.add_row("Positive reviews", str(snap.reviews_positive))
+    table.add_row("Rating", str(snap.review_score_desc))
+    table.add_row("Price", str(snap.price))
     console.print(table)
 
 
 @app.command()
 def login(
-    headed: bool = typer.Option(False, help="Mostra il browser (consigliato al primo login)."),
+    headed: bool = typer.Option(False, help="Show the browser (recommended on first login)."),
 ) -> None:
-    """Effettua/aggiorna la sessione autenticata Steam (TOTP)."""
+    """Establish/refresh the authenticated Steam session (TOTP)."""
     from steam_agent.auth.session import ensure_session
 
     asyncio.run(ensure_session(headless=not headed))
-    console.print("[green]Sessione pronta.[/]")
+    console.print("[green]Session ready.[/]")
 
 
 @app.command("collect-games")
 def collect_games() -> None:
-    """Recupera la lista giochi dal portale partner e la salva in config/games.yaml."""
+    """Fetch the games list from the partner portal and save it to config/games.yaml."""
     from steam_agent.collectors.partner_games import fetch_games
 
     games = asyncio.run(fetch_games())
     out = CONFIG_DIR / "games.yaml"
     out.write_text(yaml.safe_dump({"games": games}, allow_unicode=True), encoding="utf-8")
-    console.print(f"[green]Salvati {len(games)} giochi in[/] {out}")
+    console.print(f"[green]Saved {len(games)} games to[/] {out}")
 
 
 @app.command()
-def show(limit: int = typer.Option(20, help="Numero di snapshot da mostrare.")) -> None:
-    """Mostra gli ultimi snapshot salvati."""
+def show(limit: int = typer.Option(20, help="Number of snapshots to show.")) -> None:
+    """Show the latest saved snapshots."""
     init_db()
     with SessionLocal() as session:
         rows = session.execute(
             select(GameSnapshot).order_by(GameSnapshot.collected_at.desc()).limit(limit)
         ).scalars().all()
 
-    table = Table(title="Ultimi snapshot")
-    for col in ("appid", "nome", "giocatori", "rec. tot", "positive", "quando"):
+    table = Table(title="Latest snapshots")
+    for col in ("appid", "name", "players", "rev. tot", "positive", "when"):
         table.add_column(col)
     for r in rows:
         table.add_row(
@@ -103,10 +103,10 @@ def show(limit: int = typer.Option(20, help="Numero di snapshot da mostrare.")) 
 
 @app.command("collect-traffic")
 def collect_traffic(
-    day: str = typer.Option(None, "--day", help="Giorno YYYY-MM-DD (default: ieri UTC)"),
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
+    day: str = typer.Option(None, "--day", help="Day YYYY-MM-DD (default: yesterday UTC)"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
 ) -> None:
-    """Scarica il traffico pagina store (per sorgente) di un giorno e lo salva."""
+    """Download the store page traffic (per source) for a day and save it."""
     from datetime import date as date_cls
     from datetime import datetime, timedelta, timezone
 
@@ -121,49 +121,49 @@ def collect_traffic(
     )
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
-    console.print(f"Raccolta traffico per {len(appids)} app, giorno [bold]{target}[/]...")
+    console.print(f"Collecting traffic for {len(appids)} apps, day [bold]{target}[/]...")
     data = asyncio.run(fetch_traffic(appids, target))
     total = sum(save_traffic(aid, target, rows) for aid, rows in data.items())
     with_data = sum(1 for rows in data.values() if rows)
     console.print(
-        f"[green]OK[/] — {total} righe traffico da {with_data}/{len(appids)} app per {target}."
+        f"[green]OK[/] — {total} traffic rows from {with_data}/{len(appids)} apps for {target}."
     )
 
 
 @app.command("collect-wishlist")
 def collect_wishlist(
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
 ) -> None:
-    """Scarica lo storico wishlist (azioni giornaliere) dal portale partner."""
+    """Download the wishlist history (daily actions) from the partner portal."""
     from steam_agent.collectors.wishlist import fetch_wishlist
     from steam_agent.games import load_games
     from steam_agent.storage.raw import save_wishlist
 
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
-    console.print(f"Raccolta wishlist (storico completo) per {len(appids)} app...")
+    console.print(f"Collecting wishlist (full history) for {len(appids)} apps...")
     data = asyncio.run(fetch_wishlist(appids))
     total = sum(save_wishlist(aid, rows) for aid, rows in data.items())
     with_data = sum(1 for rows in data.values() if rows)
     console.print(
-        f"[green]OK[/] — {total} giorni-wishlist da {with_data}/{len(appids)} app."
+        f"[green]OK[/] — {total} wishlist-days from {with_data}/{len(appids)} apps."
     )
 
 
 @app.command("collect-sales")
 def collect_sales(
-    since: str = typer.Option("2018-01", help="Mese iniziale YYYY-MM (default 2018-01)"),
-    until: str = typer.Option(None, help="Mese finale YYYY-MM (default: mese corrente)"),
-    month: str = typer.Option(None, help="Solo questo mese YYYY-MM"),
-    months_opt: str = typer.Option(None, "--months", help="Lista YYYY-MM separati da virgola (gap-fill)"),
+    since: str = typer.Option("2018-01", help="Start month YYYY-MM (default 2018-01)"),
+    until: str = typer.Option(None, help="End month YYYY-MM (default: current month)"),
+    month: str = typer.Option(None, help="Only this month YYYY-MM"),
+    months_opt: str = typer.Option(None, "--months", help="Comma-separated list of YYYY-MM (gap-fill)"),
 ) -> None:
-    """Scarica le vendite mensili (unita' + ricavi netti, per paese) dal portale."""
+    """Download monthly sales (units + net revenue, per country) from the portal."""
     from datetime import date as date_cls
     from datetime import datetime, timezone
 
@@ -183,7 +183,7 @@ def collect_sales(
         end = _parse(until) if until else datetime.now(timezone.utc).date().replace(day=1)
         months = months_range(start, end)
 
-    console.print(f"Raccolta vendite per {len(months)} mesi...")
+    console.print(f"Collecting sales for {len(months)} months...")
     counter = {"rows": 0, "months": 0}
 
     def _on(m, rows) -> None:
@@ -193,23 +193,23 @@ def collect_sales(
 
     asyncio.run(fetch_sales(months, on_result=_on))
     console.print(
-        f"[green]OK[/] — {counter['rows']} righe vendite da {counter['months']}/{len(months)} mesi."
+        f"[green]OK[/] — {counter['rows']} sales rows from {counter['months']}/{len(months)} months."
     )
 
 
 @app.command("collect-reviews")
 def collect_reviews(
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
-    max_reviews: int = typer.Option(2000, "--max", help="Max recensioni per gioco"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
+    max_reviews: int = typer.Option(2000, "--max", help="Max reviews per game"),
 ) -> None:
-    """Scarica le recensioni (testo + voto) dalla API pubblica, base per il sentiment."""
+    """Download reviews (text + vote) from the public API, basis for sentiment."""
     from steam_agent.collectors.reviews import fetch_reviews
     from steam_agent.games import load_games
     from steam_agent.storage.raw import save_reviews
 
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
     total = 0
@@ -220,60 +220,60 @@ def collect_reviews(
         total += n
         if n:
             with_data += 1
-    console.print(f"[green]OK[/] — {total} recensioni da {with_data}/{len(appids)} app.")
+    console.print(f"[green]OK[/] — {total} reviews from {with_data}/{len(appids)} apps.")
 
 
 @app.command("collect-players")
 def collect_players(
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
 ) -> None:
-    """Scarica lo storico players (DAU + picco concorrenti, giornaliero) dal portale."""
+    """Download the players history (DAU + peak concurrent, daily) from the portal."""
     from steam_agent.collectors.players import fetch_players
     from steam_agent.games import load_games
     from steam_agent.storage.raw import save_players
 
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
-    console.print(f"Raccolta players (storico) per {len(appids)} app...")
+    console.print(f"Collecting players (history) for {len(appids)} apps...")
     data = asyncio.run(fetch_players(appids))
     total = sum(save_players(aid, rows) for aid, rows in data.items())
     with_data = sum(1 for rows in data.values() if rows)
     console.print(
-        f"[green]OK[/] — {total} giorni-players da {with_data}/{len(appids)} app."
+        f"[green]OK[/] — {total} player-days from {with_data}/{len(appids)} apps."
     )
 
 
 @app.command("collect-playtime")
 def collect_playtime(
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
 ) -> None:
-    """Scarica lo snapshot lifetime di tempo di gioco (medio/mediano + distribuzione)."""
+    """Download the lifetime playtime snapshot (average/median + distribution)."""
     from steam_agent.collectors.playtime import fetch_playtime
     from steam_agent.games import load_games
     from steam_agent.storage.raw import save_playtime
 
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
-    console.print(f"Raccolta playtime per {len(appids)} app...")
+    console.print(f"Collecting playtime for {len(appids)} apps...")
     data = asyncio.run(fetch_playtime(appids))
     n = sum(save_playtime(s) for s in data.values())
-    console.print(f"[green]OK[/] — snapshot playtime per {n}/{len(appids)} app.")
+    console.print(f"[green]OK[/] — playtime snapshot for {n}/{len(appids)} apps.")
 
 
 @app.command("collect-marketing")
 def collect_marketing(
-    appid: int = typer.Option(None, help="Solo questo appid (default: tutti i giochi)"),
+    appid: int = typer.Option(None, help="Only this appid (default: all games)"),
     preset: str = typer.Option(
-        "lifetime", help="Intervallo: lifetime|1year|6months|3months|1month|1week"
+        "lifetime", help="Range: lifetime|1year|6months|3months|1month|1week"
     ),
 ) -> None:
-    """Scarica serie Visits/Impressions Over Time + ownership + top-paesi (pagina Marketing)."""
+    """Download Visits/Impressions Over Time series + ownership + top countries (Marketing page)."""
     from steam_agent.collectors.marketing import fetch_marketing
     from steam_agent.games import load_games
     from steam_agent.storage.raw import (
@@ -284,10 +284,10 @@ def collect_marketing(
 
     appids = [appid] if appid else [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Nessun appid: esegui prima `collect-games`.[/]")
+        console.print("[yellow]No appid: run `collect-games` first.[/]")
         raise typer.Exit(1)
 
-    console.print(f"Raccolta marketing ({preset}) per {len(appids)} app...")
+    console.print(f"Collecting marketing ({preset}) for {len(appids)} apps...")
     data = asyncio.run(fetch_marketing(appids, preset))
     series = owners_n = country_n = 0
     for aid, res in data.items():
@@ -296,21 +296,21 @@ def collect_marketing(
         country_n += save_marketing_country(aid, res["countries"])
     with_data = sum(1 for res in data.values() if res["daily"])
     console.print(
-        f"[green]OK[/] — {series} righe serie · owners per {owners_n} app · "
-        f"{country_n} righe paesi · da {with_data}/{len(appids)} app."
+        f"[green]OK[/] — {series} series rows · owners for {owners_n} apps · "
+        f"{country_n} country rows · from {with_data}/{len(appids)} apps."
     )
 
 
 @app.command()
 def doctor() -> None:
-    """Verifica i prerequisiti (Python, browser, .env, credenziali, sessione, DB, catalogo)."""
+    """Check the prerequisites (Python, browser, .env, credentials, session, DB, catalog)."""
     import sys
     from pathlib import Path as _Path
 
     from steam_agent.games import load_games
     from steam_agent.settings import PROJECT_ROOT
 
-    checks: list[tuple[str, str, str]] = []  # (stato OK|FAIL|WARN, voce, dettaglio)
+    checks: list[tuple[str, str, str]] = []  # (status OK|FAIL|WARN, item, detail)
 
     py_ok = sys.version_info >= (3, 11)
     checks.append(("OK" if py_ok else "FAIL", "Python >= 3.11",
@@ -323,58 +323,58 @@ def doctor() -> None:
             exe = p.chromium.executable_path
         ok = bool(exe) and _Path(exe).exists()
         checks.append(("OK" if ok else "FAIL", "Browser Playwright (chromium)",
-                       "installato" if ok else "manca -> uv run playwright install chromium"))
+                       "installed" if ok else "missing -> uv run playwright install chromium"))
     except Exception as exc:  # noqa: BLE001
-        checks.append(("FAIL", "Browser Playwright (chromium)", f"errore: {exc}"))
+        checks.append(("FAIL", "Browser Playwright (chromium)", f"error: {exc}"))
 
     env_ok = (PROJECT_ROOT / ".env").exists()
-    checks.append(("OK" if env_ok else "FAIL", "File .env",
-                   "presente" if env_ok else "manca -> copia .env.example o usa `setup`"))
+    checks.append(("OK" if env_ok else "FAIL", ".env file",
+                   "present" if env_ok else "missing -> copy .env.example or use `setup`"))
 
     creds_ok = bool(settings.steam_username and settings.steam_password)
-    checks.append(("OK" if creds_ok else "FAIL", "Credenziali bot",
-                   "ok" if creds_ok else "STEAM_USERNAME/PASSWORD mancanti"))
+    checks.append(("OK" if creds_ok else "FAIL", "Bot credentials",
+                   "ok" if creds_ok else "STEAM_USERNAME/PASSWORD missing"))
 
     secret = bool(settings.steam_shared_secret.strip())
-    checks.append(("OK" if secret else "WARN", "shared_secret (login automatico)",
-                   "ok (TOTP)" if secret else "assente -> `login --headed` (manuale)"))
+    checks.append(("OK" if secret else "WARN", "shared_secret (automatic login)",
+                   "ok (TOTP)" if secret else "absent -> `login --headed` (manual)"))
 
     pid = settings.steam_partner_id
-    checks.append(("OK" if pid else "WARN", "STEAM_PARTNER_ID (vendite)",
-                   str(pid) if pid else "non impostato -> `setup` lo rileva"))
+    checks.append(("OK" if pid else "WARN", "STEAM_PARTNER_ID (sales)",
+                   str(pid) if pid else "not set -> `setup` detects it"))
 
     sess_ok = settings.storage_state_path.exists()
-    checks.append(("OK" if sess_ok else "WARN", "Sessione salvata",
-                   "presente" if sess_ok else "assente -> `login` / `setup`"))
+    checks.append(("OK" if sess_ok else "WARN", "Saved session",
+                   "present" if sess_ok else "absent -> `login` / `setup`"))
 
     try:
         init_db()
         checks.append(("OK", "Database", settings.database_url))
         n = len(load_games())
-        checks.append(("OK" if n else "WARN", "Catalogo giochi",
-                       f"{n} giochi" if n else "vuoto -> `collect-games`"))
+        checks.append(("OK" if n else "WARN", "Games catalog",
+                       f"{n} games" if n else "empty -> `collect-games`"))
     except Exception as exc:  # noqa: BLE001
-        checks.append(("FAIL", "Database", f"errore: {exc}"))
+        checks.append(("FAIL", "Database", f"error: {exc}"))
 
     colors = {"OK": "green", "FAIL": "red", "WARN": "yellow"}
     table = Table(title="SteamAgent — doctor")
-    table.add_column("Stato")
-    table.add_column("Voce")
-    table.add_column("Dettaglio")
+    table.add_column("Status")
+    table.add_column("Item")
+    table.add_column("Detail")
     for stato, voce, det in checks:
         table.add_row(f"[{colors[stato]}]{stato}[/]", voce, det)
     console.print(table)
 
     fails = [v for s, v, _ in checks if s == "FAIL"]
     if fails:
-        console.print(f"[red]Da sistemare:[/] {', '.join(fails)}")
+        console.print(f"[red]To fix:[/] {', '.join(fails)}")
         raise typer.Exit(1)
-    console.print("[green]Prerequisiti a posto.[/] Procedi con `setup` (primo avvio) o `collect-all`.")
+    console.print("[green]Prerequisites OK.[/] Proceed with `setup` (first run) or `collect-all`.")
 
 
 @app.command()
 def setup() -> None:
-    """Wizard di primo avvio: .env, login, rilevamento partner, catalogo giochi, DB."""
+    """First-run wizard: .env, login, partner detection, games catalog, DB."""
     from steam_agent.auth.session import ensure_session, fetch_publishers
     from steam_agent.collectors.partner_games import fetch_games
     from steam_agent.envtools import update_env
@@ -382,27 +382,27 @@ def setup() -> None:
 
     console.print("[bold]SteamAgent — setup[/]\n")
     console.print(
-        "Serve un ACCOUNT STEAM DEDICATO al bot (non il tuo personale), invitato nel\n"
-        "vostro Steamworks con permesso di sola lettura dei report. Dettagli nel README.\n"
+        "You need a STEAM ACCOUNT DEDICATED to the bot (not your personal one), invited to\n"
+        "your Steamworks with read-only permission on the reports. Details in the README.\n"
     )
 
-    # 1) credenziali -> .env
+    # 1) credentials -> .env
     reconfigure = True
     if (PROJECT_ROOT / ".env").exists() and settings.steam_username:
         reconfigure = typer.confirm(
-            f"Credenziali già presenti ({settings.steam_username}). Riconfigurare?", default=False
+            f"Credentials already present ({settings.steam_username}). Reconfigure?", default=False
         )
     if reconfigure:
-        username = typer.prompt("STEAM_USERNAME (account bot)",
+        username = typer.prompt("STEAM_USERNAME (bot account)",
                                 default=settings.steam_username or None)
         password = typer.prompt("STEAM_PASSWORD", hide_input=True)
         console.print(
-            "\n[dim]shared_secret (base64) = login automatico non presidiato (TOTP).\n"
-            "Lascia VUOTO per inserire il codice a mano a ogni login (più semplice per iniziare).[/]"
+            "\n[dim]shared_secret (base64) = unattended automatic login (TOTP).\n"
+            "Leave EMPTY to enter the code manually at every login (simpler to start with).[/]"
         )
-        secret = typer.prompt("STEAM_SHARED_SECRET (invio per saltare)",
+        secret = typer.prompt("STEAM_SHARED_SECRET (enter to skip)",
                               default="", hide_input=True, show_default=False)
-        anthropic = typer.prompt("ANTHROPIC_API_KEY (opzionale, invio per saltare)",
+        anthropic = typer.prompt("ANTHROPIC_API_KEY (optional, enter to skip)",
                                  default="", hide_input=True, show_default=False)
         updates = {"STEAM_USERNAME": username, "STEAM_PASSWORD": password}
         if secret:
@@ -415,68 +415,68 @@ def setup() -> None:
         settings.steam_shared_secret = secret
         if anthropic:
             settings.anthropic_api_key = anthropic
-        console.print("[green].env aggiornato.[/]\n")
+        console.print("[green].env updated.[/]\n")
 
-    # 2) login (headed: gestisce conferma email e codice 2FA manuale)
-    console.print("Apro il browser per il login (completa eventuali conferme email/2FA)...\n")
+    # 2) login (headed: handles email confirmation and manual 2FA code)
+    console.print("Opening the browser for login (complete any email/2FA confirmations)...\n")
     try:
         asyncio.run(ensure_session(headless=False))
     except Exception as exc:  # noqa: BLE001
-        console.print(f"[red]Login fallito:[/] {exc}")
+        console.print(f"[red]Login failed:[/] {exc}")
         raise typer.Exit(1)
-    console.print("[green]Login completato.[/]\n")
+    console.print("[green]Login completed.[/]\n")
 
-    # 3) rileva partner_id + nome studio dal portale
+    # 3) detect partner_id + studio name from the portal
     try:
         pubs = asyncio.run(fetch_publishers(headless=True))
     except Exception:  # noqa: BLE001
         pubs = {}
     if not pubs:
         console.print(
-            "[yellow]Nessun publisher rilevato.[/] Imposta STEAM_PARTNER_ID a mano "
-            "se ti serve per le vendite.\n"
+            "[yellow]No publisher detected.[/] Set STEAM_PARTNER_ID manually "
+            "if you need it for sales.\n"
         )
     else:
         if len(pubs) == 1:
             pid_s, name = next(iter(pubs.items()))
         else:
             items = list(pubs.items())
-            console.print("Publisher disponibili:")
+            console.print("Available publishers:")
             for i, (pid_, name_) in enumerate(items, 1):
                 console.print(f"  {i}. {name_} (id {pid_})")
-            idx = typer.prompt("Scegli il numero", type=int, default=1)
+            idx = typer.prompt("Choose the number", type=int, default=1)
             pid_s, name = items[min(max(idx, 1), len(items)) - 1]
         update_env({"STEAM_PARTNER_ID": str(pid_s), "STUDIO_NAME": name})
         settings.steam_partner_id = int(pid_s)
         settings.studio_name = name
-        console.print(f"[green]Partner rilevato:[/] {name} (id {pid_s}).\n")
+        console.print(f"[green]Partner detected:[/] {name} (id {pid_s}).\n")
 
-    # 4) catalogo giochi
-    console.print("Scarico la lista giochi dal portale...")
+    # 4) games catalog
+    console.print("Downloading the games list from the portal...")
     try:
         games = asyncio.run(fetch_games())
         (CONFIG_DIR / "games.yaml").write_text(
             yaml.safe_dump({"games": games}, allow_unicode=True), encoding="utf-8"
         )
-        console.print(f"[green]{len(games)} giochi[/] salvati in config/games.yaml.\n")
+        console.print(f"[green]{len(games)} games[/] saved to config/games.yaml.\n")
     except Exception as exc:  # noqa: BLE001
-        console.print(f"[yellow]Lista giochi non scaricata:[/] {exc} (riprova con `collect-games`).\n")
+        console.print(f"[yellow]Games list not downloaded:[/] {exc} (retry with `collect-games`).\n")
 
     # 5) DB
     init_db()
-    console.print("[bold green]Setup completato![/]\n")
-    console.print("Prossimi passi:")
-    console.print("  uv run steam-agent collect-all          # scarica tutti i dati")
-    console.print("  uv run streamlit run dashboard/app.py   # apri la dashboard")
+    console.print("[bold green]Setup completed![/]\n")
+    console.print("Next steps:")
+    console.print("  uv run steam-agent collect-all          # download all the data")
+    console.print("  uv run streamlit run dashboard/app.py   # open the dashboard")
 
 
 @app.command("collect-all")
 def collect_all(
     sales_since: str = typer.Option(
-        None, help="Mese iniziale vendite YYYY-MM (default: ultimi 2 mesi)"
+        None, help="Sales start month YYYY-MM (default: last 2 months)"
     ),
 ) -> None:
-    """Aggiorna TUTTI i dataset in sequenza (marketing, wishlist, players, recensioni, playtime, vendite, traffico)."""
+    """Update ALL datasets in sequence (marketing, wishlist, players, reviews, playtime, sales, traffic)."""
     from datetime import date as _date
     from datetime import datetime as _dt
     from datetime import timedelta as _td
@@ -486,7 +486,7 @@ def collect_all(
 
     appids = [g["appid"] for g in load_games()]
     if not appids:
-        console.print("[yellow]Catalogo vuoto: esegui prima `setup` o `collect-games`.[/]")
+        console.print("[yellow]Empty catalog: run `setup` or `collect-games` first.[/]")
         raise typer.Exit(1)
 
     results: list[tuple[str, str]] = []
@@ -496,7 +496,7 @@ def collect_all(
         try:
             results.append((label, fn()))
         except Exception as exc:  # noqa: BLE001
-            results.append((label, f"[red]errore: {exc}[/]"))
+            results.append((label, f"[red]error: {exc}[/]"))
 
     def _marketing() -> str:
         from steam_agent.collectors.marketing import fetch_marketing
@@ -512,47 +512,47 @@ def collect_all(
             s += save_marketing(aid, res["daily"])
             o += save_marketing_owners(aid, res["owners"])
             c += save_marketing_country(aid, res["countries"])
-        return f"{s} righe serie · owners {o} · paesi {c}"
+        return f"{s} series rows · owners {o} · countries {c}"
 
     def _wishlist() -> str:
         from steam_agent.collectors.wishlist import fetch_wishlist
         from steam_agent.storage.raw import save_wishlist
 
         data = asyncio.run(fetch_wishlist(appids))
-        return f"{sum(save_wishlist(a, r) for a, r in data.items())} giorni-wishlist"
+        return f"{sum(save_wishlist(a, r) for a, r in data.items())} wishlist-days"
 
     def _players() -> str:
         from steam_agent.collectors.players import fetch_players
         from steam_agent.storage.raw import save_players
 
         data = asyncio.run(fetch_players(appids))
-        return f"{sum(save_players(a, r) for a, r in data.items())} giorni-players"
+        return f"{sum(save_players(a, r) for a, r in data.items())} player-days"
 
     def _reviews() -> str:
         from steam_agent.collectors.reviews import fetch_reviews
         from steam_agent.storage.raw import save_reviews
 
-        return f"{sum(save_reviews(fetch_reviews(a, 2000)) for a in appids)} recensioni"
+        return f"{sum(save_reviews(fetch_reviews(a, 2000)) for a in appids)} reviews"
 
     def _playtime() -> str:
         from steam_agent.collectors.playtime import fetch_playtime
         from steam_agent.storage.raw import save_playtime
 
         data = asyncio.run(fetch_playtime(appids))
-        return f"snapshot per {sum(save_playtime(s) for s in data.values())} app"
+        return f"snapshot for {sum(save_playtime(s) for s in data.values())} apps"
 
     def _sales() -> str:
         from steam_agent.collectors.sales import fetch_sales, months_range
         from steam_agent.storage.raw import save_sales
 
         if not settings.steam_partner_id:
-            return "saltato (STEAM_PARTNER_ID non impostato)"
+            return "skipped (STEAM_PARTNER_ID not set)"
         today = _dt.now(_tz.utc).date().replace(day=1)
         if sales_since:
             y, m = sales_since.split("-")
             start = _date(int(y), int(m), 1)
         else:
-            start = (today - _td(days=1)).replace(day=1)  # mese scorso
+            start = (today - _td(days=1)).replace(day=1)  # last month
         months = months_range(start, today)
         counter = {"rows": 0}
 
@@ -560,7 +560,7 @@ def collect_all(
             counter["rows"] += save_sales(_m, rows)
 
         asyncio.run(fetch_sales(months, on_result=_on))
-        return f"{counter['rows']} righe vendite ({len(months)} mesi)"
+        return f"{counter['rows']} sales rows ({len(months)} months)"
 
     def _traffic() -> str:
         from steam_agent.collectors.traffic import fetch_traffic
@@ -568,19 +568,19 @@ def collect_all(
 
         day = _dt.now(_tz.utc).date() - _td(days=1)
         data = asyncio.run(fetch_traffic(appids, day))
-        return f"{sum(save_traffic(a, day, r) for a, r in data.items())} righe traffico ({day})"
+        return f"{sum(save_traffic(a, day, r) for a, r in data.items())} traffic rows ({day})"
 
     step("Marketing", _marketing)
     step("Wishlist", _wishlist)
     step("Players", _players)
-    step("Recensioni", _reviews)
+    step("Reviews", _reviews)
     step("Playtime", _playtime)
-    step("Vendite", _sales)
-    step("Traffico", _traffic)
+    step("Sales", _sales)
+    step("Traffic", _traffic)
 
-    table = Table(title="collect-all — riepilogo")
+    table = Table(title="collect-all — summary")
     table.add_column("Dataset")
-    table.add_column("Esito")
+    table.add_column("Result")
     for label, res in results:
         table.add_row(label, str(res))
     console.print(table)

@@ -1,4 +1,4 @@
-"""Helper per leggere la lista giochi del portfolio da config/games.yaml."""
+"""Helper to read the portfolio game list from config/games.yaml."""
 from __future__ import annotations
 
 import yaml
@@ -7,7 +7,7 @@ from steam_agent.settings import CONFIG_DIR
 
 
 def load_games() -> list[dict]:
-    """Ritorna la lista [{appid, name}, ...] da config/games.yaml (vuota se assente)."""
+    """Returns the list [{appid, name}, ...] from config/games.yaml (empty if absent)."""
     path = CONFIG_DIR / "games.yaml"
     if not path.exists():
         return []

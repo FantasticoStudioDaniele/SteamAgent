@@ -1,4 +1,4 @@
-"""Marketing — Visits/Impressions Over Time per sorgente (serie storiche jqplot)."""
+"""Marketing — Visits/Impressions Over Time by source (jqplot time series)."""
 from __future__ import annotations
 
 import altair as alt
@@ -8,35 +8,35 @@ import streamlit as st
 import data
 
 st.set_page_config(page_title="Marketing · SteamAgent", page_icon="📣", layout="wide")
-st.title("📣 Marketing — visite & impression nel tempo")
-st.caption("Serie storiche per sorgente, dalla pagina *Store Traffic Stats* (per gioco).")
+st.title("📣 Marketing — visits & impressions over time")
+st.caption("Time series by source, from the *Store Traffic Stats* page (per game).")
 
 df = data.marketing()
 if df.empty:
     data.empty_note("marketing")
-    st.caption("Popola con: `uv run steam-agent collect-marketing`")
+    st.caption("Populate with: `uv run steam-agent collect-marketing`")
     data.sidebar_refresh()
     st.stop()
 
-# --- selezione gioco (le sorgenti top sono per-gioco) ---
+# --- game selection (top sources are per-game) ---
 games = sorted(df["game"].dropna().unique().tolist())
-game = st.sidebar.selectbox("Gioco", games, key="mk_game")
+game = st.sidebar.selectbox("Game", games, key="mk_game")
 g = df[df["game"] == game].copy()
 
-# --- periodo ---
+# --- period ---
 lo, hi = g["date"].min().date(), g["date"].max().date()
-sel = st.sidebar.date_input("Periodo", (lo, hi), min_value=lo, max_value=hi, key="mk_dates")
+sel = st.sidebar.date_input("Period", (lo, hi), min_value=lo, max_value=hi, key="mk_dates")
 if isinstance(sel, (list, tuple)) and len(sel) == 2:
     a, b = pd.Timestamp(sel[0]), pd.Timestamp(sel[1]) + pd.Timedelta(days=1)
     g = g[(g["date"] >= a) & (g["date"] < b)]
 
-# --- granularità (8 anni di dati giornalieri sono fitti) ---
-gran = st.sidebar.radio("Granularità", ["Mese", "Settimana", "Giorno"], key="mk_gran")
-freq = {"Giorno": "D", "Settimana": "W", "Mese": "MS"}[gran]
-drop_bot = st.sidebar.checkbox("Escludi Bot Traffic dalle visite", value=False, key="mk_bot")
+# --- granularity (8 years of daily data is dense) ---
+gran = st.sidebar.radio("Granularity", ["Month", "Week", "Day"], key="mk_gran")
+freq = {"Day": "D", "Week": "W", "Month": "MS"}[gran]
+drop_bot = st.sidebar.checkbox("Exclude Bot Traffic from visits", value=False, key="mk_bot")
 
 if g.empty:
-    st.warning("Nessun dato con i filtri correnti.")
+    st.warning("No data with the current filters.")
     data.sidebar_refresh()
     st.stop()
 
@@ -63,7 +63,7 @@ def line_chart(frame: pd.DataFrame, title: str):
         .encode(
             x=alt.X("date:T", title=None),
             y=alt.Y("value:Q", title=title),
-            color=alt.Color("source:N", title="Sorgente", sort=order),
+            color=alt.Color("source:N", title="Source", sort=order),
             tooltip=["date:T", "source:N", alt.Tooltip("value:Q", format=",.0f")],
         )
         .properties(height=340)
@@ -81,25 +81,25 @@ i_tot = int(imp[imp["source"] == "Total"]["value"].sum())
 ctr = (v_tot / i_tot * 100) if i_tot else 0
 data.kpis(
     [
-        ("Visite (Total)", data.fmt_int(v_tot)),
-        ("Impression (Total)", data.fmt_int(i_tot)),
-        ("CTR (visite/impr.)", data.fmt_pct(ctr)),
-        ("Sorgenti tracciate", data.fmt_int(g["source"].nunique())),
+        ("Visits (Total)", data.fmt_int(v_tot)),
+        ("Impressions (Total)", data.fmt_int(i_tot)),
+        ("CTR (visits/impr.)", data.fmt_pct(ctr)),
+        ("Sources tracked", data.fmt_int(g["source"].nunique())),
     ]
 )
 st.divider()
 
 st.subheader("Visits Over Time")
 if vis.empty:
-    st.info("Nessun dato visite.")
+    st.info("No visits data.")
 else:
-    st.altair_chart(line_chart(vis, "Visite"), width="stretch")
+    st.altair_chart(line_chart(vis, "Visits"), width="stretch")
 
 st.subheader("Impressions Over Time")
 if imp.empty:
-    st.info("Nessun dato impression.")
+    st.info("No impressions data.")
 else:
-    st.altair_chart(line_chart(imp, "Impression"), width="stretch")
+    st.altair_chart(line_chart(imp, "Impressions"), width="stretch")
 
 st.divider()
 co, cc = st.columns([1, 2])
@@ -108,12 +108,12 @@ with co:
     odf = data.marketing_owners()
     orow = odf[odf["game"] == game] if not odf.empty else odf
     if orow.empty:
-        st.info("Nessun dato ownership.")
+        st.info("No ownership data.")
     else:
         latest = orow.sort_values("snapshot_date").iloc[-1]
-        st.metric("Visite da Owner", data.fmt_pct(latest["owners_pct"]))
+        st.metric("Visits from Owners", data.fmt_pct(latest["owners_pct"]))
         pie = pd.DataFrame(
-            {"tipo": ["Owner", "Non-Owner"],
+            {"type": ["Owner", "Non-Owner"],
              "pct": [latest["owners_pct"], latest["non_owners_pct"]]}
         )
         st.altair_chart(
@@ -121,40 +121,40 @@ with co:
             .mark_arc(innerRadius=55)
             .encode(
                 theta="pct:Q",
-                color=alt.Color("tipo:N", title=None,
+                color=alt.Color("type:N", title=None,
                                 scale=alt.Scale(domain=["Owner", "Non-Owner"],
                                                 range=["#66c0f4", "#3a3f44"])),
-                tooltip=["tipo:N", alt.Tooltip("pct:Q", format=".2f")],
+                tooltip=["type:N", alt.Tooltip("pct:Q", format=".2f")],
             )
             .properties(height=240),
             width="stretch",
         )
         st.caption(f"Snapshot {latest['snapshot_date'].date()}")
 with cc:
-    st.subheader("Top paesi per visite")
+    st.subheader("Top countries by visits")
     cdf = data.marketing_country()
     crow = cdf[cdf["game"] == game] if not cdf.empty else cdf
     if crow.empty:
-        st.info("Nessun dato paesi.")
+        st.info("No country data.")
     else:
         crow = crow[crow["snapshot_date"] == crow["snapshot_date"].max()]
-        if st.checkbox("Escludi 'Unknown'", value=False, key="mk_unknown"):
+        if st.checkbox("Exclude 'Unknown'", value=False, key="mk_unknown"):
             crow = crow[crow["country"].str.lower() != "unknown"]
         crow = crow.sort_values("visits", ascending=False)
         st.altair_chart(
             alt.Chart(crow)
             .mark_bar(color="#66c0f4")
             .encode(
-                x=alt.X("visits:Q", title="Visite"),
+                x=alt.X("visits:Q", title="Visits"),
                 y=alt.Y("country:N", sort="-x", title=None),
                 tooltip=["country:N", alt.Tooltip("visits:Q", format=",.0f"),
-                         alt.Tooltip("pct:Q", title="quota %", format=".0f")],
+                         alt.Tooltip("pct:Q", title="share %", format=".0f")],
             )
             .properties(height=300),
             width="stretch",
         )
 
-with st.expander("Dettaglio / export"):
+with st.expander("Detail / export"):
     show = g[["date", "metric", "source", "value"]].sort_values(
         ["metric", "date", "value"], ascending=[True, False, False]
     )

@@ -1,4 +1,4 @@
-"""Configurazione centrale (12-factor): legge da .env / variabili d'ambiente."""
+"""Central configuration (12-factor): reads from .env / environment variables."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,28 +18,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Account Steam dedicato al bot
+    # Steam account dedicated to the bot
     steam_username: str = ""
     steam_password: str = ""
     steam_shared_secret: str = ""
 
-    # Steamworks publisher Web API key (opzionale)
+    # Steamworks publisher Web API key (optional)
     steam_publisher_api_key: str = ""
 
-    # ID partner/publisher sul portale (report vendite). 0 = non impostato:
-    # `setup` lo rileva automaticamente dal portale dopo il login.
+    # Partner/publisher ID on the portal (sales report). 0 = not set:
+    # `setup` detects it automatically from the portal after login.
     steam_partner_id: int = 0
 
-    # Nome studio mostrato in dashboard (opzionale, rilevato da `setup`).
+    # Studio name shown in the dashboard (optional, detected by `setup`).
     studio_name: str = ""
 
-    # Claude API (fase LLM)
+    # Claude API (LLM phase)
     anthropic_api_key: str = ""
 
     # Storage
     database_url: str = f"sqlite:///{(DATA_DIR / 'steam_agent.db').as_posix()}"
 
-    # Smoke-test su un appid pubblico qualsiasi
+    # Smoke-test on any public appid
     smoke_test_appid: int = 440
 
     @property

@@ -1,11 +1,11 @@
-"""Collector players/DAU dal VECCHIO portale (partner.steampowered.com).
+"""Players/DAU collector from the OLD portal (partner.steampowered.com).
 
-La pagina `app/players/<appid>/` espone via `report_csv.php` la query
-`QueryDailyActiveUserHistory`: storico GIORNALIERO completo in una richiesta:
+The `app/players/<appid>/` page exposes via `report_csv.php` the
+`QueryDailyActiveUserHistory` query: complete DAILY history in a single request:
     DateReported, DailyActiveUsers, PeakConcurrentUsers
 
-Stessi vincoli del vecchio portale: warm PER-APP obbligatorio + rate-limit ->
-retry-pass (come le wishlist). Raw in data/raw/players/<appid>/<start>_to_<end>.csv.
+Same constraints as the old portal: PER-APP warm mandatory + rate-limit ->
+retry passes (like wishlist). Raw in data/raw/players/<appid>/<start>_to_<end>.csv.
 """
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ async def _fetch_one(page, app_id: int, date_start: str, date_end: str, warm: st
         if resp.status == 200 and "DateReported" in text[:600]:
             rows = parse_players_csv(text, app_id)
             _archive_raw(app_id, text, date_start, date_end)
-            log.info("Players appid %s: %d giorni.", app_id, len(rows))
+            log.info("Players appid %s: %d days.", app_id, len(rows))
             return rows, ("ok" if rows else "empty")
         return [], "fail"
     except Exception as exc:  # noqa: BLE001
@@ -89,7 +89,7 @@ async def _fetch_one(page, app_id: int, date_start: str, date_end: str, warm: st
 async def fetch_players(
     app_ids: list[int], date_start: str = "2010-01-01", date_end: str | None = None
 ) -> dict[int, list[dict]]:
-    """Storico players completo per ogni app, robusto al rate-limiting (retry-pass)."""
+    """Complete players history for each app, robust to rate limiting (retry passes)."""
     date_end = date_end or datetime.now(timezone.utc).date().isoformat()
     out: dict[int, list[dict]] = {}
     pending = list(app_ids)
@@ -99,7 +99,7 @@ async def fetch_players(
                 break
             warm = "domcontentloaded" if pass_num == 0 else "networkidle"
             if pass_num > 0:
-                log.info("Retry players: %d app rimaste (attesa anti-throttle)...", len(pending))
+                log.info("Retry players: %d apps remaining (anti-throttle wait)...", len(pending))
                 await asyncio.sleep(25)
             failed: list[int] = []
             for app_id in pending:
@@ -112,5 +112,5 @@ async def fetch_players(
             pending = failed
         for app_id in pending:
             out[app_id] = []
-            log.warning("Players appid %s: nessun dato dopo i retry.", app_id)
+            log.warning("Players appid %s: no data after retries.", app_id)
     return out

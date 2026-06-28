@@ -1,4 +1,4 @@
-"""Modelli ORM SQLAlchemy: landing grezza + pubblici + traffico + wishlist + vendite + recensioni."""
+"""SQLAlchemy ORM models: raw landing + public + traffic + wishlist + sales + reviews."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -22,7 +22,7 @@ class Base(DeclarativeBase):
 
 
 class RawPayload(Base):
-    """Landing grezza: ogni risposta di ogni fonte, storicizzata per data."""
+    """Raw landing: every response from every source, historized by date."""
 
     __tablename__ = "raw_payload"
 
@@ -35,7 +35,7 @@ class RawPayload(Base):
 
 
 class GameSnapshot(Base):
-    """Snapshot tipizzato: metriche pubbliche per appid e istante (serie storica)."""
+    """Typed snapshot: public metrics per appid and instant (time series)."""
 
     __tablename__ = "game_snapshot"
 
@@ -51,7 +51,7 @@ class GameSnapshot(Base):
 
 
 class TrafficDaily(Base):
-    """Traffico pagina store per sorgente, un giorno alla volta (serie storica)."""
+    """Store page traffic per source, one day at a time (time series)."""
 
     __tablename__ = "traffic_daily"
 
@@ -72,7 +72,7 @@ class TrafficDaily(Base):
 
 
 class WishlistDaily(Base):
-    """Azioni wishlist per giorno (serie storica completa dal lancio)."""
+    """Wishlist actions per day (full time series since launch)."""
 
     __tablename__ = "wishlist_daily"
 
@@ -89,14 +89,14 @@ class WishlistDaily(Base):
 
 
 class SalesByCountry(Base):
-    """Vendite mensili per prodotto/paese/piattaforma (Net Units + Net Steam Sales USD)."""
+    """Monthly sales per product/country/platform (Net Units + Net Steam Sales USD)."""
 
     __tablename__ = "sales_by_country"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    month: Mapped[date] = mapped_column(Date, index=True)  # primo giorno del mese
+    month: Mapped[date] = mapped_column(Date, index=True)  # first day of the month
     country: Mapped[str] = mapped_column(String(80))
-    sku: Mapped[str] = mapped_column(String(160))  # "Nome (packageId)"
+    sku: Mapped[str] = mapped_column(String(160))  # "Name (packageId)"
     package_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     product_name: Mapped[str] = mapped_column(String(160))
     platform: Mapped[str] = mapped_column(String(32))
@@ -110,7 +110,7 @@ class SalesByCountry(Base):
 
 
 class Review(Base):
-    """Recensione utente (API pubblica appreviews). PK = recommendationid (upsert)."""
+    """User review (public appreviews API). PK = recommendationid (upsert)."""
 
     __tablename__ = "review"
 
@@ -127,7 +127,7 @@ class Review(Base):
 
 
 class PlayersDaily(Base):
-    """DAU e picco di utenti concorrenti per giorno (serie storica dal lancio)."""
+    """DAU and peak concurrent users per day (time series since launch)."""
 
     __tablename__ = "players_daily"
 
@@ -142,11 +142,11 @@ class PlayersDaily(Base):
 
 
 class MarketingDaily(Base):
-    """Serie storiche 'Visits/Impressions Over Time' per sorgente (pagina Marketing).
+    """'Visits/Impressions Over Time' time series per source (Marketing page).
 
-    Dati estratti dagli oggetti jqplot live (no CSV). `metric` = 'visits'|'impressions',
-    `source` = etichetta sorgente (la serie 'Total' e' inclusa). Una riga per
-    (app, giorno, metrica, sorgente).
+    Data extracted from the live jqplot objects (no CSV). `metric` = 'visits'|'impressions',
+    `source` = source label (the 'Total' series is included). One row per
+    (app, day, metric, source).
     """
 
     __tablename__ = "marketing_daily"
@@ -165,7 +165,7 @@ class MarketingDaily(Base):
 
 
 class MarketingOwners(Base):
-    """Ripartizione visite Owner vs Non-Owner (pie 'Ownership', snapshot datato)."""
+    """Owner vs Non-Owner visits breakdown (pie 'Ownership', dated snapshot)."""
 
     __tablename__ = "marketing_owners"
 
@@ -182,7 +182,7 @@ class MarketingOwners(Base):
 
 
 class MarketingCountry(Base):
-    """Top paesi per visite (barre 'by Country', snapshot datato): conteggio + quota %."""
+    """Top countries by visits (bars 'by Country', dated snapshot): count + share %."""
 
     __tablename__ = "marketing_country"
 
@@ -200,9 +200,9 @@ class MarketingCountry(Base):
 
 
 class PlaytimeSnapshot(Base):
-    """Statistiche LIFETIME di tempo di gioco (snapshot datato, non serie storica).
+    """LIFETIME playtime statistics (dated snapshot, not a time series).
 
-    `distribution` = {soglia_minuti (str): percentuale utenti}, es. {"10":73,"60":34}.
+    `distribution` = {minutes_threshold (str): user percentage}, e.g. {"10":73,"60":34}.
     """
 
     __tablename__ = "playtime_snapshot"

@@ -1,4 +1,4 @@
-"""Interfaccia comune dei collector + record grezzo."""
+"""Common collector interface + raw record."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -13,17 +13,17 @@ def utcnow() -> datetime:
 
 @dataclass(slots=True)
 class RawRecord:
-    """Un payload grezzo raccolto da una fonte, prima della normalizzazione."""
+    """A raw payload collected from a source, before normalization."""
 
-    source: str  # es. "store_appdetails"
-    key: str  # identificatore logico, es. "appid:440"
+    source: str  # e.g. "store_appdetails"
+    key: str  # logical identifier, e.g. "appid:440"
     payload: dict[str, Any]
     app_id: int | None = None
     collected_at: datetime = field(default_factory=utcnow)
 
 
 class Collector(ABC):
-    """Ogni collector raccoglie da una fonte e restituisce record grezzi."""
+    """Each collector collects from a source and returns raw records."""
 
     name: str
 

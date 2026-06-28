@@ -1,6 +1,6 @@
-"""Dump dei link (href grezzi) di una pagina partner usando la sessione salvata.
+"""Dump of links (raw hrefs) of a partner page using the saved session.
 
-Uso: uv run python scripts/dump_links.py URL [filtro_substring]
+Usage: uv run python scripts/dump_links.py URL [filter_substring]
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ async def main() -> None:
             "a[href]", "els => els.map(e => e.getAttribute('href')).filter(Boolean)"
         )
         shown = [h for h in sorted(set(hrefs)) if not FILT or FILT in h.lower()]
-        print(f"link (filtro='{FILT}'): {len(shown)}")
+        print(f"links (filter='{FILT}'): {len(shown)}")
         for h in shown:
             print(" ", h)
         await browser.close()

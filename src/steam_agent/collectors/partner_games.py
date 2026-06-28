@@ -1,8 +1,8 @@
-"""Collector della lista giochi dal portale partner (richiede sessione autenticata).
+"""Collector for the games list from the partner portal (requires an authenticated session).
 
-Legge la pagina autorevole "All Applications" (`/apps/`) ed estrae appid + nome
-dai link `/apps/landing/<appid>`. Esclude automaticamente il rumore (blog/news su
-store.steampowered.com, switch lingua, ecc.).
+Reads the authoritative "All Applications" page (`/apps/`) and extracts appid + name
+from the `/apps/landing/<appid>` links. Automatically excludes noise (blog/news on
+store.steampowered.com, language switch, etc.).
 """
 from __future__ import annotations
 
@@ -32,10 +32,10 @@ async def fetch_games() -> list[dict]:
                 continue
             appid = int(m.group(1))
             name = html.unescape(link["text"] or "").strip()
-            # Mantieni il nome piu' informativo se l'appid compare piu' volte.
+            # Keep the more informative name if the appid appears more than once.
             if appid not in games or (name and not games[appid]):
                 games[appid] = name
-        log.info("Trovate %d applicazioni dal portale partner.", len(games))
+        log.info("Found %d applications from the partner portal.", len(games))
     return [
         {"appid": appid, "name": name}
         for appid, name in sorted(games.items(), key=lambda kv: kv[1].lower())

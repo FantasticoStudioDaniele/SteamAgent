@@ -1,16 +1,16 @@
-"""Collector Marketing (Visits/Impressions Over Time + Ownership + Paesi) — portale NUOVO.
+"""Marketing collector (Visits/Impressions Over Time + Ownership + Countries) — NEW portal.
 
-La pagina `navtrafficstats/<appid>` ha grafici jqplot i cui dati NON sono nel CSV:
-stanno negli oggetti JS LIVE di window.
-- `plotViews` / `plotImpressions`: serie storiche per sorgente. `.data` = lista di
-  serie; ogni serie = [[ 'YYYY-MM-DD', valore ], ...]; `.series[i].label` = sorgente
-  (la prima e' sempre 'Total').
-- `plotOwners`: pie Owner vs Non-Owner. `.data[0]` = [[ 'Owners: X%', X ], ...].
-- `plotCountries`: barre top-paesi per visite. `.data[0]` = conteggi visite, allineati
-  a `.axes.yaxis.ticks` = ["Paese, NN%", ...].
+The `navtrafficstats/<appid>` page has jqplot charts whose data is NOT in the CSV:
+it lives in the LIVE JS objects of window.
+- `plotViews` / `plotImpressions`: history series by source. `.data` = list of
+  series; each series = [[ 'YYYY-MM-DD', value ], ...]; `.series[i].label` = source
+  (the first is always 'Total').
+- `plotOwners`: Owner vs Non-Owner pie. `.data[0]` = [[ 'Owners: X%', X ], ...].
+- `plotCountries`: top-countries bars by visits. `.data[0]` = visit counts, aligned
+  to `.axes.yaxis.ticks` = ["Country, NN%", ...].
 
-Con `?preset_date_range=lifetime` tutto e' all-time in 1 sola richiesta. Le serie e i
-top (sorgenti/paesi) sono i top-N del periodo; owners/paesi sono SNAPSHOT datati.
+With `?preset_date_range=lifetime` everything is all-time in a single request. The series and the
+top (sources/countries) are the top-N of the period; owners/countries are dated SNAPSHOTS.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 _URL = "https://partner.steamgames.com/apps/navtrafficstats/{appid}?preset_date_range={preset}"
 
-# Legge tutti gli oggetti jqplot live della pagina.
+# Reads all the live jqplot objects of the page.
 _EXTRACT_JS = """() => {
     const read = (name) => {
         const p = window[name];
@@ -55,7 +55,7 @@ _EXTRACT_JS = """() => {
 
 
 def parse_marketing(extract: dict, app_id: int) -> list[dict]:
-    """Serie Visits/Impressions Over Time -> righe per il DB."""
+    """Visits/Impressions Over Time series -> rows for the DB."""
     rows: list[dict] = []
     for metric in ("visits", "impressions"):
         block = extract.get(metric) if extract else None
@@ -85,7 +85,7 @@ def parse_marketing(extract: dict, app_id: int) -> list[dict]:
 
 
 def parse_owners(extract: dict, app_id: int, snapshot_date: date) -> dict | None:
-    """Pie Ownership -> {owners_pct, non_owners_pct}."""
+    """Ownership pie -> {owners_pct, non_owners_pct}."""
     raw = extract.get("owners") if extract else None
     if not raw:
         return None
@@ -117,8 +117,8 @@ def parse_owners(extract: dict, app_id: int, snapshot_date: date) -> dict | None
 
 
 def parse_countries(extract: dict, app_id: int, snapshot_date: date) -> list[dict]:
-    """Barre top-paesi -> righe {country, visits, pct}. Tick = 'Paese, NN%'
-    (split sull'ULTIMO ', ' perche' alcuni nomi contengono virgole)."""
+    """Top-countries bars -> rows {country, visits, pct}. Tick = 'Country, NN%'
+    (split on the LAST ', ' because some names contain commas)."""
     block = extract.get("countries") if extract else None
     if not block:
         return []
@@ -170,7 +170,7 @@ async def _fetch_one(page, app_id: int, preset: str, snapshot_date: date) -> dic
             await page.goto(url, wait_until="networkidle")
             payload = await page.evaluate(_EXTRACT_JS)
             if not (payload.get("visits") or payload.get("impressions")):
-                # i grafici si inizializzano in $(document).ready: dai un attimo e ricontrolla
+                # the charts initialize in $(document).ready: wait a moment and recheck
                 await page.wait_for_timeout(1200)
                 payload = await page.evaluate(_EXTRACT_JS)
             daily = parse_marketing(payload, app_id)
@@ -179,22 +179,22 @@ async def _fetch_one(page, app_id: int, preset: str, snapshot_date: date) -> dic
             if daily or owners or countries:
                 _archive_raw(app_id, preset, payload)
             log.info(
-                "Marketing appid %s: %d righe serie, owners=%s, paesi=%d (%s).",
-                app_id, len(daily), "si" if owners else "no", len(countries), preset,
+                "Marketing appid %s: %d series rows, owners=%s, countries=%d (%s).",
+                app_id, len(daily), "yes" if owners else "no", len(countries), preset,
             )
             return {"daily": daily, "owners": owners, "countries": countries}
         except Exception as exc:  # noqa: BLE001
-            log.warning("Marketing appid %s tentativo %d: %s", app_id, attempt + 1, exc)
+            log.warning("Marketing appid %s attempt %d: %s", app_id, attempt + 1, exc)
             await asyncio.sleep(2)
     return {"daily": [], "owners": None, "countries": []}
 
 
 async def fetch_marketing(app_ids: list[int], preset: str = "lifetime") -> dict[int, dict]:
-    """Per ogni app estrae serie Over Time + ownership + top-paesi (un page-load)."""
+    """For each app extracts Over Time series + ownership + top-countries (one page-load)."""
     snapshot_date = datetime.now(timezone.utc).date()
     out: dict[int, dict] = {}
     async with authenticated_page(portal="new") as page:
         for app_id in app_ids:
             out[app_id] = await _fetch_one(page, app_id, preset, snapshot_date)
-            await asyncio.sleep(0.5)  # gentile sui server Steam
+            await asyncio.sleep(0.5)  # gentle on the Steam servers
     return out

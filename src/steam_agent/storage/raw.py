@@ -1,4 +1,4 @@
-"""Persistenza: record grezzi, snapshot pubblici, traffico, wishlist, vendite."""
+"""Persistence: raw records, public snapshots, traffic, wishlist, sales."""
 from __future__ import annotations
 
 import logging
@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 
 
 def save_raw(records: Iterable[RawRecord]) -> int:
-    """Append-only della landing grezza. Restituisce il numero di record salvati."""
+    """Append-only of the raw landing. Returns the number of records saved."""
     init_db()
     count = 0
     with SessionLocal() as session:
@@ -47,7 +47,7 @@ def save_raw(records: Iterable[RawRecord]) -> int:
 
 
 def build_snapshot(app_id: int, records: list[RawRecord]) -> GameSnapshot:
-    """Estrae dai record grezzi un snapshot tipizzato e leggibile."""
+    """Extracts a typed, readable snapshot from the raw records."""
     by_source = {r.source: r.payload for r in records}
     details = by_source.get("store_appdetails", {})
     reviews = by_source.get("appreviews_summary", {})
@@ -79,7 +79,7 @@ def save_snapshot(snap: GameSnapshot) -> None:
 
 
 def save_traffic(app_id: int, day: date, rows: list[dict]) -> int:
-    """Idempotente: sostituisce le righe traffico per (app_id, day)."""
+    """Idempotent: replaces the traffic rows for (app_id, day)."""
     init_db()
     with SessionLocal() as session:
         session.execute(
@@ -95,7 +95,7 @@ def save_traffic(app_id: int, day: date, rows: list[dict]) -> int:
 
 
 def save_wishlist(app_id: int, rows: list[dict]) -> int:
-    """Idempotente: sostituisce l'intero storico wishlist dell'app (full refresh)."""
+    """Idempotent: replaces the app's entire wishlist history (full refresh)."""
     init_db()
     with SessionLocal() as session:
         session.execute(delete(WishlistDaily).where(WishlistDaily.app_id == app_id))
@@ -107,7 +107,7 @@ def save_wishlist(app_id: int, rows: list[dict]) -> int:
 
 
 def save_sales(month: date, rows: list[dict]) -> int:
-    """Idempotente: sostituisce le vendite del mese."""
+    """Idempotent: replaces the month's sales."""
     init_db()
     with SessionLocal() as session:
         session.execute(delete(SalesByCountry).where(SalesByCountry.month == month))
@@ -119,7 +119,7 @@ def save_sales(month: date, rows: list[dict]) -> int:
 
 
 def save_reviews(rows: list[dict]) -> int:
-    """Upsert delle recensioni per recommendation_id (idempotente)."""
+    """Upsert of the reviews by recommendation_id (idempotent)."""
     init_db()
     with SessionLocal() as session:
         for r in rows:
@@ -129,7 +129,7 @@ def save_reviews(rows: list[dict]) -> int:
 
 
 def save_players(app_id: int, rows: list[dict]) -> int:
-    """Idempotente: sostituisce l'intero storico players dell'app (full refresh)."""
+    """Idempotent: replaces the app's entire players history (full refresh)."""
     init_db()
     with SessionLocal() as session:
         session.execute(delete(PlayersDaily).where(PlayersDaily.app_id == app_id))
@@ -141,7 +141,7 @@ def save_players(app_id: int, rows: list[dict]) -> int:
 
 
 def save_marketing(app_id: int, rows: list[dict]) -> int:
-    """Idempotente: sostituisce l'intera serie marketing dell'app (full refresh)."""
+    """Idempotent: replaces the app's entire marketing series (full refresh)."""
     init_db()
     with SessionLocal() as session:
         session.execute(delete(MarketingDaily).where(MarketingDaily.app_id == app_id))
@@ -153,7 +153,7 @@ def save_marketing(app_id: int, rows: list[dict]) -> int:
 
 
 def save_marketing_owners(app_id: int, snap: dict | None) -> int:
-    """Idempotente: salva/sostituisce lo snapshot owners per (app_id, snapshot_date)."""
+    """Idempotent: saves/replaces the owners snapshot for (app_id, snapshot_date)."""
     if not snap:
         return 0
     init_db()
@@ -170,7 +170,7 @@ def save_marketing_owners(app_id: int, snap: dict | None) -> int:
 
 
 def save_marketing_country(app_id: int, rows: list[dict]) -> int:
-    """Idempotente: sostituisce i top-paesi per (app_id, snapshot_date)."""
+    """Idempotent: replaces the top countries for (app_id, snapshot_date)."""
     if not rows:
         return 0
     init_db()
@@ -190,7 +190,7 @@ def save_marketing_country(app_id: int, rows: list[dict]) -> int:
 
 
 def save_playtime(snap: dict | None) -> int:
-    """Idempotente: salva/sostituisce lo snapshot playtime per (app_id, snapshot_date)."""
+    """Idempotent: saves/replaces the playtime snapshot for (app_id, snapshot_date)."""
     if not snap:
         return 0
     init_db()
