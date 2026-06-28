@@ -151,7 +151,8 @@ Cross-platform code. In production: switch to Postgres (`DATABASE_URL`), configu
 
 ## Credits & support
 
-Built by **Daniele Bianchini** at **[Fantastico Studio](https://fantasticostudio.it/)**.
+Built by **Daniele Bianchini** at **[Fantastico Studio](https://fantasticostudio.it/)**,
+developed entirely with **[Claude Code](https://claude.com/claude-code)** (Anthropic).
 
 If you'd like to support us, check out our games and website: **https://fantasticostudio.it/** 🎮
 
