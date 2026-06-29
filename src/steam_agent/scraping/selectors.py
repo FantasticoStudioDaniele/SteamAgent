@@ -85,9 +85,17 @@ SALES_CSV_HEADER_TOKEN = "Country,Sku"      # the report header line (drift gate
 SALES_CSV_HEADER_FIRST_CELL = "Country"     # first column where the parser starts
 TRAFFIC_HEADER_TOKENS = ("Impressions", "Visits")
 TRAFFIC_MIN_COLUMNS = 6
-# Playtime page has zero <table> elements => layout gone; confirm we're still on
-# the playtime URL (not bounced to an SSO/login page) before calling it drift.
+# Page-nav anchors. Real-account runs showed that demos / zero-data apps render a
+# VALID page with NO charts (marketing) or NO tables (playtime), so "structure
+# absent" alone is NOT drift. We classify against a page marker (proves the page
+# rendered) and transient-error markers (a retryable auth/load glitch, not a
+# layout change). Only "structure absent AND not the known page AND not an error"
+# is real drift. See scraping.drift.page_outcome.
 URL_FRAG_PLAYTIME = "/app/playtime/"
+URL_FRAG_MARKETING = "navtrafficstats"
+MARKETING_PAGE_MARKER = "Store Traffic Stats"      # the marketing page <title>/heading
+PLAYTIME_PAGE_MARKER = "play time stats"           # "Lifetime play time stats: <game>"
+TRANSIENT_PAGE_MARKERS = ("authentication failed", "failed to load app info")
 # Authenticated-shell anchors: this JS global is injected on every authed page of
 # BOTH portals; the search box exists only in the logged-in NEW-portal header.
 SEL_APP_HEADER_FIND_INPUT = "#appHeaderFindInput"

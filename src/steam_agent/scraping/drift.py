@@ -63,14 +63,36 @@ def marketing_charts_missing(payload: dict | None) -> bool:
     return p.get("visits") is None and p.get("impressions") is None
 
 
-def playtime_layout_drift(
-    nav_ok: bool, tables: list, final_url: str, expected_url_fragment: str
-) -> bool:
-    """True when navigation succeeded but the playtime page has zero <table>
-    elements while still on the playtime URL. A game with no playtime keeps its
-    table shell, so it does not trip this; an SSO/login bounce (URL changed) is
-    excluded so a session expiry is not misread as a layout change."""
-    return bool(nav_ok) and len(tables) == 0 and expected_url_fragment in (final_url or "")
+def page_outcome(
+    page_text: str,
+    *,
+    structure_present: bool,
+    page_marker: str,
+    transient_markers: Sequence[str],
+    on_expected_page: bool = True,
+) -> str:
+    """Classify a DOM scrape into 'ok' | 'empty' | 'transient' | 'drift'.
+
+    Real-account runs proved that "the data structure is missing" is NOT enough to
+    call drift: demos and zero-data apps render a perfectly valid page with no
+    charts/tables, and a transient auth glitch returns an error page — neither is a
+    Steam layout change. So:
+
+    - ``structure_present`` (charts/tables parsed) -> 'ok'.
+    - bounced off the expected URL, or a transient-error marker present -> 'transient'
+      (retryable; not drift).
+    - the page's own structural marker is present -> 'empty' (the page rendered, this
+      app simply has no data).
+    - otherwise -> 'drift' (the page is neither the expected page nor a known error).
+    """
+    if structure_present:
+        return "ok"
+    low = (page_text or "").lower()
+    if not on_expected_page or any(m.lower() in low for m in transient_markers):
+        return "transient"
+    if page_marker.lower() in low:
+        return "empty"
+    return "drift"
 
 
 def session_anchor_ok(global_defined: bool, header_box_count: int) -> bool:

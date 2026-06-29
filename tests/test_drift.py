@@ -9,7 +9,7 @@ from steam_agent.scraping.drift import (
     SchemaDriftError,
     csv_header_drift,
     marketing_charts_missing,
-    playtime_layout_drift,
+    page_outcome,
     session_anchor_ok,
 )
 
@@ -53,12 +53,29 @@ def test_marketing_charts_missing_only_when_both_absent():
     assert marketing_charts_missing({"visits": {"labels": [], "data": []}, "impressions": None}) is False
 
 
-def test_playtime_layout_drift_distinguishes_empty_and_bounce():
-    url = "https://partner.steampowered.com/app/playtime/440/"
-    assert playtime_layout_drift(True, [], url, "/app/playtime/") is True
-    assert playtime_layout_drift(True, [["row"]], url, "/app/playtime/") is False   # has a table
-    assert playtime_layout_drift(True, [], "https://x/login", "/app/playtime/") is False  # bounced
-    assert playtime_layout_drift(False, [], url, "/app/playtime/") is False         # nav failed
+def test_page_outcome_classifies_empty_transient_and_drift():
+    # Real cases captured from a live run.
+    markers = ("authentication failed", "failed to load app info")
+    valid_marketing = "<title>Store Traffic Stats: Dumpling Squishy Demo</title>"
+    valid_playtime = "<title>Lifetime play time stats: Dumpling Squishy Demo</title>"
+    auth_error = "<body>Failed to load app info section 'common'! Account authentication failed</body>"
+
+    # structure present -> ok regardless of the text
+    assert page_outcome("", structure_present=True, page_marker="x", transient_markers=markers) == "ok"
+    # a demo / zero-data app renders a valid page with no charts/tables -> empty
+    assert page_outcome(valid_marketing, structure_present=False,
+                        page_marker="Store Traffic Stats", transient_markers=markers) == "empty"
+    assert page_outcome(valid_playtime, structure_present=False,
+                        page_marker="play time stats", transient_markers=markers) == "empty"
+    # an auth/load error page -> transient (retryable, not a layout change)
+    assert page_outcome(auth_error, structure_present=False,
+                        page_marker="Store Traffic Stats", transient_markers=markers) == "transient"
+    # bounced off the expected page (SSO/login) -> transient
+    assert page_outcome("login", structure_present=False, page_marker="Store Traffic Stats",
+                        transient_markers=markers, on_expected_page=False) == "transient"
+    # the page rendered but is neither the expected page nor a known error -> real drift
+    assert page_outcome("<html>something else entirely</html>", structure_present=False,
+                        page_marker="Store Traffic Stats", transient_markers=markers) == "drift"
 
 
 def test_session_anchor_ok_keys_on_defined_not_nonempty():

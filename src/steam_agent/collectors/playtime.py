@@ -17,7 +17,7 @@ from steam_agent.auth.session import authenticated_page
 from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
 from steam_agent.scraping.artifacts import dump_page_artifact
-from steam_agent.scraping.drift import playtime_layout_drift
+from steam_agent.scraping.drift import page_outcome
 
 log = logging.getLogger(__name__)
 
@@ -73,13 +73,26 @@ async def _fetch_one(page, app_id: int, snapshot_date: date) -> dict | None:
         try:
             await page.goto(f"{OLD}/app/playtime/{app_id}/", wait_until="domcontentloaded")
             tables = await page.evaluate(_TABLES_JS)
-            if playtime_layout_drift(True, tables, page.url, S.URL_FRAG_PLAYTIME):
-                # Zero <table> elements while still on the playtime page: the
-                # table layout the parser depends on is gone (a game with no
-                # playtime keeps its table shell, so this isn't that).
+            if len(tables) == 0:
+                # No tables. A demo / no-playtime app still renders a valid
+                # "Lifetime play time stats" page (just without a table), so that is
+                # empty, not drift; an auth/login bounce is transient.
+                outcome = page_outcome(
+                    await page.content(), structure_present=False,
+                    page_marker=S.PLAYTIME_PAGE_MARKER,
+                    transient_markers=S.TRANSIENT_PAGE_MARKERS,
+                    on_expected_page=S.URL_FRAG_PLAYTIME in page.url,
+                )
+                if outcome == "empty":
+                    log.info("Playtime appid %s: no playtime data (empty page).", app_id)
+                    return None
                 art = await dump_page_artifact(page, "playtime", app_id, label="snapshot")
-                report.record_drift("playtime", f"appid {app_id}: no tables on the playtime page",
-                                    str(art.get("url")))
+                if outcome == "drift":
+                    report.record_drift("playtime",
+                                        f"appid {app_id}: no tables on an unrecognized page",
+                                        str(art.get("url")))
+                else:
+                    log.warning("Playtime appid %s: transient page error.", app_id)
                 return None
             snap = parse_playtime(tables, app_id, snapshot_date)
             log.info("Playtime appid %s: %s", app_id, "ok" if snap else "no data")

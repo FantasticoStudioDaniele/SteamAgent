@@ -23,7 +23,7 @@ from steam_agent.auth.session import authenticated_page
 from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
 from steam_agent.scraping.artifacts import dump_page_artifact
-from steam_agent.scraping.drift import marketing_charts_missing
+from steam_agent.scraping.drift import marketing_charts_missing, page_outcome
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
@@ -173,14 +173,26 @@ async def _fetch_one(page, app_id: int, preset: str, snapshot_date: date) -> dic
                 await page.wait_for_timeout(1200)
                 payload = await page.evaluate(_EXTRACT_JS)
             if marketing_charts_missing(payload):
-                # Both jqplot objects are absent after the document.ready re-check:
-                # the page didn't render its charts (layout change), distinct from a
-                # game with genuinely no traffic (charts present with empty data).
-                art = await dump_page_artifact(page, "marketing", app_id, label=preset)
-                report.record_drift(
-                    "marketing", f"appid {app_id}: visits & impressions charts did not render",
-                    str(art.get("url")),
+                # Charts absent after the document.ready re-check. Classify why: a
+                # demo / zero-traffic app renders a valid page with no charts (empty),
+                # an auth/load glitch returns an error page (transient) — only an
+                # unrecognized page is real drift.
+                outcome = page_outcome(
+                    await page.content(), structure_present=False,
+                    page_marker=S.MARKETING_PAGE_MARKER,
+                    transient_markers=S.TRANSIENT_PAGE_MARKERS,
+                    on_expected_page=S.URL_FRAG_MARKETING in page.url,
                 )
+                if outcome == "empty":
+                    log.info("Marketing appid %s: no traffic data (empty page).", app_id)
+                    return {"daily": [], "owners": None, "countries": []}
+                art = await dump_page_artifact(page, "marketing", app_id, label=preset)
+                if outcome == "drift":
+                    report.record_drift("marketing",
+                                        f"appid {app_id}: charts absent on an unrecognized page",
+                                        str(art.get("url")))
+                else:
+                    log.warning("Marketing appid %s: transient page error (no data this run).", app_id)
                 return {"daily": [], "owners": None, "countries": []}
             daily = parse_marketing(payload, app_id)
             owners = parse_owners(payload, app_id, snapshot_date)
