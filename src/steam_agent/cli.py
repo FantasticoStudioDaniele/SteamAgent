@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 
 import typer
 import yaml
@@ -16,6 +17,25 @@ from steam_agent.settings import settings
 from steam_agent.storage.db import SessionLocal, init_db
 from steam_agent.storage.models import GameSnapshot
 from steam_agent.storage.raw import build_snapshot, save_raw, save_snapshot
+
+
+def _force_utf8_stdio(streams=None) -> None:
+    """Make stdout/stderr UTF-8 so non-interactive runs don't crash on Windows.
+
+    When the CLI's output is redirected, piped, or run in the background on
+    Windows, Python defaults the stream encoding to the ANSI code page (cp1252),
+    which cannot encode the UI glyphs Rich prints (→ · — •) — raising
+    UnicodeEncodeError and aborting an otherwise-fine scheduled run. Best-effort:
+    never let stdio setup itself break startup.
+    """
+    for stream in (streams if streams is not None else (sys.stdout, sys.stderr)):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 — missing method / detached stream / etc.
+            pass
+
+
+_force_utf8_stdio()
 
 logging.basicConfig(
     level=logging.INFO,
