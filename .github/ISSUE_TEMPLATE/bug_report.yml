@@ -1,0 +1,48 @@
+name: "Bug report"
+description: Something is broken that isn't a scraper/Steam-layout issue.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a broken collector or a changed Steam page, please use the
+        **“Scraper broke / Steam changed”** template instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected versus what actually occurred.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact command(s) and any relevant config.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - dashboard
+        - storage / DB
+        - auth / login
+        - install / deps
+        - other
+  - type: input
+    id: env
+    attributes:
+      label: OS + Python version
+      placeholder: "macOS 14 / Python 3.11"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traceback
+      render: shell

@@ -1,0 +1,73 @@
+name: "Scraper broke / Steam changed"
+description: A collector stopped returning data, or a partner-portal page/selector changed.
+title: "[scraper] "
+labels: ["scraper", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Steam occasionally restyles its partner-portal pages, which can break the
+        DOM/CSV scraping. Thanks for flagging it — the details below help a lot.
+        Please **redact any appids, revenue, or personal data** from logs.
+  - type: dropdown
+    id: collector
+    attributes:
+      label: Which collector?
+      options:
+        - marketing
+        - traffic
+        - wishlist
+        - sales
+        - players
+        - playtime
+        - reviews
+        - login / session
+        - collect-games
+        - not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: portal
+    attributes:
+      label: Which portal?
+      options:
+        - "new (partner.steamgames.com)"
+        - "old (partner.steampowered.com)"
+        - "public API"
+        - "not sure"
+    validations:
+      required: false
+  - type: textarea
+    id: error
+    attributes:
+      label: Command + error / empty result
+      description: The exact command you ran and the error or the (unexpectedly empty) output.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Did it work before?
+      options:
+        - "Yes, it used to work"
+        - "No, never worked for me"
+        - "Not sure"
+  - type: textarea
+    id: ui-change
+    attributes:
+      label: Noticed a change in the Steam UI?
+      description: If the portal page looks different than before, describe what changed.
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`steam-agent doctor` output"
+      description: Paste the doctor table (redact paths/secrets if needed).
+      render: shell
+  - type: input
+    id: env
+    attributes:
+      label: OS + Python version
+      placeholder: "Windows 11 / Python 3.12"
+    validations:
+      required: true

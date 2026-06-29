@@ -177,6 +177,17 @@ Cross-platform code. In production: switch to Postgres (`DATABASE_URL`), configu
 - [ ] LLM layer (insights, anomalies, review sentiment, natural-language Q&A → SQL)
 - [ ] Scheduler, alerts, self-healing scrapers
 
+## Security
+
+Found a vulnerability? Please report it **privately** via GitHub's
+[security advisories](https://github.com/FantasticoStudioDaniele/SteamAgent/security/advisories/new),
+not a public issue — see [SECURITY.md](SECURITY.md).
+
+The `shared_secret` (if you set it) generates Steam Guard codes forever, so it is
+a **permanent 2FA bypass**: treat it like the account password, keep `.env` and
+`data/storage_state.json` private (they are `chmod 0600` on POSIX), and run
+`steam-agent doctor` to check the permissions.
+
 ## License
 
 [MIT](LICENSE). Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
