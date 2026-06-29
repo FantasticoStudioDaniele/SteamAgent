@@ -23,7 +23,10 @@ import logging
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_response_artifact
+from steam_agent.scraping.drift import csv_header_drift
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
@@ -53,7 +56,7 @@ def parse_wishlist_csv(text: str, app_id: int) -> list[dict]:
         if not r:
             continue
         if not started:
-            if r and r[0].strip() == "DateLocal":
+            if r and r[0].strip() == S.WISHLIST_CSV_HEADER_TOKEN:
                 started = True
             continue
         if len(r) < 6:
@@ -92,13 +95,19 @@ async def _fetch_one(
     """
     try:
         await page.goto(f"{OLD}/app/wishlist/{app_id}/", wait_until=warm)
-        resp = await page.context.request.get(_csv_url(app_id, date_start, date_end))
+        url = _csv_url(app_id, date_start, date_end)
+        resp = await page.context.request.get(url)
         text = await resp.text()
-        if resp.status == 200 and "DateLocal" in text[:600]:
+        if resp.status == 200 and S.WISHLIST_CSV_HEADER_TOKEN in text[:S.CSV_HEADER_SCAN_BYTES]:
             rows = parse_wishlist_csv(text, app_id)
             _archive_raw(app_id, text, date_start, date_end)
             log.info("Wishlist appid %s: %d days.", app_id, len(rows))
             return rows, ("ok" if rows else "empty")
+        if csv_header_drift(resp.status, text, (S.WISHLIST_CSV_HEADER_TOKEN,)):
+            await dump_response_artifact(resp, url, "wishlist", app_id,
+                                         label=f"{date_start}_to_{date_end}")
+            report.record_drift("wishlist", f"appid {app_id}: report CSV header missing", url)
+            return [], "drift"
         return [], "fail"
     except Exception as exc:  # noqa: BLE001
         log.warning("Wishlist appid %s: %s", app_id, exc)

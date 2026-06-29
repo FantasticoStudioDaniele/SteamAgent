@@ -23,7 +23,10 @@ import re
 from datetime import date
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_response_artifact
+from steam_agent.scraping.drift import csv_header_drift
 from steam_agent.settings import DATA_DIR, settings
 
 log = logging.getLogger(__name__)
@@ -60,7 +63,7 @@ def parse_sales_csv(text: str, month: date) -> list[dict]:
         if not r:
             continue
         if not started:
-            if r[0].strip() == "Country":
+            if r[0].strip() == S.SALES_CSV_HEADER_FIRST_CELL:
                 started = True
             continue
         if len(r) < 5:
@@ -107,13 +110,19 @@ async def _fetch_month(page, month: date) -> tuple[list[dict], str]:
     last_day = calendar.monthrange(month.year, month.month)[1]
     date_end = month.strftime(f"%Y-%m-{last_day:02d}")
     try:
-        resp = await page.context.request.get(_csv_url(date_start, date_end))
+        url = _csv_url(date_start, date_end)
+        resp = await page.context.request.get(url)
         text = await resp.text()
-        if resp.status == 200 and "Country,Sku" in text[:600]:
+        if resp.status == 200 and S.SALES_CSV_HEADER_TOKEN in text[:S.CSV_HEADER_SCAN_BYTES]:
             rows = parse_sales_csv(text, month)
             _archive_raw(month, text)
             log.info("Sales %s: %d rows.", month.strftime("%Y-%m"), len(rows))
             return rows, ("ok" if rows else "empty")
+        if csv_header_drift(resp.status, text, (S.SALES_CSV_HEADER_TOKEN,)):
+            await dump_response_artifact(resp, url, "sales", month.strftime("%Y-%m"),
+                                         label=month.strftime("%Y-%m"))
+            report.record_drift("sales", f"month {month:%Y-%m}: report CSV header missing", url)
+            return [], "drift"
         return [], "fail"
     except Exception as exc:  # noqa: BLE001
         log.warning("Sales %s: %s", month.strftime("%Y-%m"), exc)

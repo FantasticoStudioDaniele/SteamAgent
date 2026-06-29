@@ -500,12 +500,14 @@ def collect_all(
     from datetime import timezone as _tz
 
     from steam_agent.games import load_games
+    from steam_agent.scraping import report
 
     appids = [g["appid"] for g in load_games()]
     if not appids:
         console.print("[yellow]Empty catalog: run `setup` or `collect-games` first.[/]")
         raise typer.Exit(1)
 
+    report.reset()  # collect schema-drift events across all collectors this run
     results: list[tuple[str, str]] = []
     failures: list[str] = []
 
@@ -605,12 +607,22 @@ def collect_all(
         table.add_row(label, str(res))
     console.print(table)
 
-    if failures:
-        # Exit non-zero so an unattended scheduler (cron/systemd/Task Scheduler)
-        # can detect and alert on a partial or total failure.
+    drift = report.drift_events()
+    if drift:
         console.print(
-            f"[red]{len(failures)}/{len(results)} dataset(s) failed:[/] {', '.join(failures)}"
+            f"[red]SCHEMA DRIFT — {len(drift)} event(s)[/]: Steam may have changed a page "
+            "layout. Inspect the artifacts under data/raw/_failures/ :"
         )
+        for ev in drift:
+            console.print(f"  • {ev}")
+
+    if failures or drift:
+        # Exit non-zero so an unattended scheduler (cron/systemd/Task Scheduler) can
+        # detect and alert. Drift in particular needs a human — retrying won't help.
+        if failures:
+            console.print(
+                f"[red]{len(failures)}/{len(results)} dataset(s) failed:[/] {', '.join(failures)}"
+            )
         raise typer.Exit(1)
 
 

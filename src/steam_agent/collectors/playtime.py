@@ -14,7 +14,10 @@ import re
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_page_artifact
+from steam_agent.scraping.drift import playtime_layout_drift
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +73,14 @@ async def _fetch_one(page, app_id: int, snapshot_date: date) -> dict | None:
         try:
             await page.goto(f"{OLD}/app/playtime/{app_id}/", wait_until="domcontentloaded")
             tables = await page.evaluate(_TABLES_JS)
+            if playtime_layout_drift(True, tables, page.url, S.URL_FRAG_PLAYTIME):
+                # Zero <table> elements while still on the playtime page: the
+                # table layout the parser depends on is gone (a game with no
+                # playtime keeps its table shell, so this isn't that).
+                art = await dump_page_artifact(page, "playtime", app_id, label="snapshot")
+                report.record_drift("playtime", f"appid {app_id}: no tables on the playtime page",
+                                    str(art.get("url")))
+                return None
             snap = parse_playtime(tables, app_id, snapshot_date)
             log.info("Playtime appid %s: %s", app_id, "ok" if snap else "no data")
             return snap

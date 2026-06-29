@@ -24,7 +24,10 @@ import logging
 from datetime import date
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_response_artifact
+from steam_agent.scraping.drift import csv_header_drift
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
@@ -85,7 +88,14 @@ async def fetch_traffic(app_ids: list[int], day: date) -> dict[int, list[dict]]:
                 )
                 resp = await page.context.request.get(url)
                 text = await resp.text()
-                if resp.status != 200 or "<html" in text[:200].lower():
+                if csv_header_drift(resp.status, text, S.TRAFFIC_HEADER_TOKENS,
+                                    min_columns=S.TRAFFIC_MIN_COLUMNS):
+                    await dump_response_artifact(resp, url, "traffic", app_id,
+                                                 label=day.isoformat())
+                    report.record_drift("traffic", f"appid {app_id}: CSV header changed", url)
+                    out[app_id] = []
+                    continue
+                if resp.status != 200 or S.HTML_SENTINEL in text[:200].lower():
                     log.warning("Traffic appid %s: invalid response (status %s).",
                                 app_id, resp.status)
                     out[app_id] = []

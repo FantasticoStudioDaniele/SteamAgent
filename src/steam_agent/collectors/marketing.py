@@ -20,7 +20,10 @@ import logging
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_page_artifact
+from steam_agent.scraping.drift import marketing_charts_missing
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
@@ -169,6 +172,16 @@ async def _fetch_one(page, app_id: int, preset: str, snapshot_date: date) -> dic
                 # the charts initialize in $(document).ready: wait a moment and recheck
                 await page.wait_for_timeout(1200)
                 payload = await page.evaluate(_EXTRACT_JS)
+            if marketing_charts_missing(payload):
+                # Both jqplot objects are absent after the document.ready re-check:
+                # the page didn't render its charts (layout change), distinct from a
+                # game with genuinely no traffic (charts present with empty data).
+                art = await dump_page_artifact(page, "marketing", app_id, label=preset)
+                report.record_drift(
+                    "marketing", f"appid {app_id}: visits & impressions charts did not render",
+                    str(art.get("url")),
+                )
+                return {"daily": [], "owners": None, "countries": []}
             daily = parse_marketing(payload, app_id)
             owners = parse_owners(payload, app_id, snapshot_date)
             countries = parse_countries(payload, app_id, snapshot_date)

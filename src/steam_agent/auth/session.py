@@ -22,7 +22,9 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from steam_agent.auth.steam_guard import generate_twofactor_code
+from steam_agent.scraping import report
 from steam_agent.scraping import selectors as S
+from steam_agent.scraping.artifacts import dump_page_artifact
 from steam_agent.secure import secure_file
 from steam_agent.settings import settings
 
@@ -94,6 +96,15 @@ async def _enter_2fa(page: Page, headless: bool) -> None:
             raise SteamLoginError(
                 "Steam requests EMAIL confirmation (new device). Use `login --headed`."
             )
+        # The TOTP modal never showed its segmented inputs and this isn't the email
+        # screen: likely a layout change. Record it loudly + dump an artifact, but
+        # keep the existing control flow (a transient glitch still surfaces as a
+        # downstream login timeout rather than a hard crash mid-login).
+        art = await dump_page_artifact(page, "session", "2fa", label="totp-modal-missing")
+        report.record_drift(
+            "session", "Steam Guard code modal did not appear (layout change?)",
+            str(art.get("url")),
+        )
         return
 
     body = (await page.locator("body").inner_text()).lower()

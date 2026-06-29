@@ -73,6 +73,28 @@ JS_PLAYTIME_TABLES = """() => [...document.querySelectorAll('table')].map(t =>
     [...t.querySelectorAll('tr')].map(r =>
         [...r.querySelectorAll('th,td')].map(c => (c.innerText || '').trim())))"""
 
+# --- Schema-drift anchors (consumed by scraping.drift) ----------------------
+# The ABSENCE of these structural markers in a *successful* (200) response is what
+# signals Steam changed a layout — NOT a zero result count, which is a legitimately
+# empty (but intact) report. See scraping/drift.py.
+CSV_HEADER_SCAN_BYTES = 600
+HTML_SENTINEL = "<html"
+PLAYERS_CSV_HEADER_TOKEN = "DateReported"
+WISHLIST_CSV_HEADER_TOKEN = "DateLocal"
+SALES_CSV_HEADER_TOKEN = "Country,Sku"      # the report header line (drift gate)
+SALES_CSV_HEADER_FIRST_CELL = "Country"     # first column where the parser starts
+TRAFFIC_HEADER_TOKENS = ("Impressions", "Visits")
+TRAFFIC_MIN_COLUMNS = 6
+# Playtime page has zero <table> elements => layout gone; confirm we're still on
+# the playtime URL (not bounced to an SSO/login page) before calling it drift.
+URL_FRAG_PLAYTIME = "/app/playtime/"
+# Authenticated-shell anchors: this JS global is injected on every authed page of
+# BOTH portals; the search box exists only in the logged-in NEW-portal header.
+SEL_APP_HEADER_FIND_INPUT = "#appHeaderFindInput"
+JS_AFFILIATED_PUBLISHERS_DEFINED = (
+    '() => typeof window.g_rgAllAffiliatedPublishers !== "undefined"'
+)
+
 # --- NEW portal: partner app list (collectors/partner_games.py) -------------
 URL_PARTNER_APPS = "https://partner.steamgames.com/apps/"
 # One source of truth for the landing-link path, so the CSS selector and the
