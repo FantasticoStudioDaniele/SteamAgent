@@ -22,20 +22,21 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from steam_agent.auth.steam_guard import generate_twofactor_code
+from steam_agent.scraping import selectors as S
 from steam_agent.secure import secure_file
 from steam_agent.settings import settings
 
 log = logging.getLogger(__name__)
 
-NEW_HOME = "https://partner.steamgames.com/"
-NEW_DASHBOARD = "https://partner.steamgames.com/dashboard"
-OLD_BASE = "https://partner.steampowered.com"
-OLD_CHECK = f"{OLD_BASE}/dir.php"
+NEW_HOME = S.URL_NEW_HOME
+NEW_DASHBOARD = S.URL_NEW_DASHBOARD
+OLD_BASE = S.URL_OLD_BASE
+OLD_CHECK = S.URL_OLD_CHECK
 
-_SIGNIN_BTN = 'button[onclick*="g_ShowLoginDialog"]'
-_PASSWORD = "input[type='password']"
-_USERNAME = "xpath=//input[@type='password']/preceding::input[@type='text'][1]"
-_SEGMENT = "input[type='text']:not(#appHeaderFindInput)"
+_SIGNIN_BTN = S.SEL_SIGNIN_BTN
+_PASSWORD = S.SEL_PASSWORD
+_USERNAME = S.SEL_USERNAME
+_SEGMENT = S.SEL_TOTP_SEGMENT
 
 
 class SteamLoginError(RuntimeError):
@@ -77,7 +78,7 @@ async def _enter_2fa(page: Page, headless: bool) -> None:
     except PlaywrightTimeoutError:
         pass
 
-    link = page.get_by_text("Enter a code instead", exact=False)
+    link = page.get_by_text(S.TXT_ENTER_CODE_INSTEAD, exact=False)
     try:
         await link.wait_for(state="visible", timeout=15_000)
         await link.click()
@@ -89,14 +90,14 @@ async def _enter_2fa(page: Page, headless: bool) -> None:
         await seg.first.wait_for(state="visible", timeout=20_000)
     except PlaywrightTimeoutError:
         body = (await page.locator("body").inner_text()).lower()
-        if ("email address at" in body or "from your email" in body) and headless:
+        if (S.TXT_EMAIL_CONFIRM_AT in body or S.TXT_EMAIL_CONFIRM_FROM in body) and headless:
             raise SteamLoginError(
                 "Steam requests EMAIL confirmation (new device). Use `login --headed`."
             )
         return
 
     body = (await page.locator("body").inner_text()).lower()
-    if "email address at" in body or "from your email" in body:
+    if S.TXT_EMAIL_CONFIRM_AT in body or S.TXT_EMAIL_CONFIRM_FROM in body:
         if headless:
             raise SteamLoginError(
                 "Steam requests EMAIL confirmation (new device). Use `login --headed`."
@@ -142,7 +143,7 @@ async def detect_publishers(page: Page) -> dict[str, str]:
     """
     try:
         await page.goto(NEW_HOME, wait_until="networkidle")
-        raw = await page.evaluate("() => window.g_rgAllAffiliatedPublishers || {}")
+        raw = await page.evaluate(S.JS_AFFILIATED_PUBLISHERS)
         return {str(k): str(v) for k, v in (raw or {}).items()}
     except Exception:  # noqa: BLE001
         return {}

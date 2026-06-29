@@ -20,38 +20,15 @@ import logging
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import selectors as S
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
 
-_URL = "https://partner.steamgames.com/apps/navtrafficstats/{appid}?preset_date_range={preset}"
+_URL = S.URL_MARKETING_TMPL
 
 # Reads all the live jqplot objects of the page.
-_EXTRACT_JS = """() => {
-    const read = (name) => {
-        const p = window[name];
-        if (!p || !p.data) return null;
-        return { labels: (p.series || []).map(s => s.label), data: p.data };
-    };
-    let owners = null;
-    if (window.plotOwners && window.plotOwners.data && window.plotOwners.data[0])
-        owners = window.plotOwners.data[0];
-    let countries = null;
-    if (window.plotCountries && window.plotCountries.data && window.plotCountries.data[0]) {
-        let ticks = [];
-        try {
-            ticks = window.plotCountries.axes.yaxis.ticks.map(
-                t => (t && t.label !== undefined) ? t.label : t);
-        } catch (e) { ticks = []; }
-        countries = { counts: window.plotCountries.data[0], ticks: ticks };
-    }
-    return {
-        visits: read('plotViews'),
-        impressions: read('plotImpressions'),
-        owners: owners,
-        countries: countries,
-    };
-}"""
+_EXTRACT_JS = S.JS_MARKETING_EXTRACT
 
 
 # Steam's "Over Time" series occasionally start with a stray point detached from

@@ -23,11 +23,12 @@ import logging
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import selectors as S
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
 
-OLD = "https://partner.steampowered.com"
+OLD = S.URL_OLD_BASE
 
 
 def _to_int(value: str) -> int:

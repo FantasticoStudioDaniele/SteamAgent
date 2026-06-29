@@ -14,14 +14,13 @@ import re
 from datetime import date, datetime, timezone
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import selectors as S
 
 log = logging.getLogger(__name__)
 
-OLD = "https://partner.steampowered.com"
+OLD = S.URL_OLD_BASE
 
-_TABLES_JS = """() => [...document.querySelectorAll('table')].map(t =>
-    [...t.querySelectorAll('tr')].map(r =>
-        [...r.querySelectorAll('th,td')].map(c => (c.innerText || '').trim())))"""
+_TABLES_JS = S.JS_PLAYTIME_TABLES
 
 
 def _to_minutes(text: str) -> int | None:

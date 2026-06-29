@@ -24,11 +24,12 @@ import logging
 from datetime import date
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import selectors as S
 from steam_agent.settings import DATA_DIR
 
 log = logging.getLogger(__name__)
 
-_TRAFFIC_URL = "https://partner.steamgames.com/apps/navtrafficstats/{appid}"
+_TRAFFIC_URL = S.URL_TRAFFIC
 
 
 def _to_int(value: str) -> int:

@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import html
 import logging
-import re
 
 from steam_agent.auth.session import authenticated_page
+from steam_agent.scraping import selectors as S
 
 log = logging.getLogger(__name__)
 
-APPS_URL = "https://partner.steamgames.com/apps/"
-_LANDING_RE = re.compile(r"/apps/landing/(\d+)")
+APPS_URL = S.URL_PARTNER_APPS
+_LANDING_RE = S.RE_APP_LANDING_ID
 
 
 async def fetch_games() -> list[dict]:
@@ -23,7 +23,7 @@ async def fetch_games() -> list[dict]:
     async with authenticated_page() as page:
         await page.goto(APPS_URL, wait_until="networkidle")
         links = await page.eval_on_selector_all(
-            "a[href*='/apps/landing/']",
+            S.SEL_APP_LANDING_LINK,
             "els => els.map(e => ({href: e.href, text: (e.textContent||'').trim()}))",
         )
         for link in links:
