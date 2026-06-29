@@ -22,6 +22,7 @@ from playwright.async_api import BrowserContext, Page, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from steam_agent.auth.steam_guard import generate_twofactor_code
+from steam_agent.secure import secure_file
 from steam_agent.settings import settings
 
 log = logging.getLogger(__name__)
@@ -199,6 +200,7 @@ async def ensure_session(headless: bool = True) -> None:
             else:
                 await _login_old(page, headless)
             await context.storage_state(path=str(settings.storage_state_path))
+            secure_file(settings.storage_state_path)
         finally:
             await browser.close()
 
@@ -220,10 +222,12 @@ async def authenticated_page(
                 if not await _is_new_authed(page):
                     await _login_new(page, headless)
             await context.storage_state(path=str(settings.storage_state_path))
+            secure_file(settings.storage_state_path)
             yield page
         finally:
             try:
                 await context.storage_state(path=str(settings.storage_state_path))
+                secure_file(settings.storage_state_path)
             except Exception:  # noqa: BLE001
                 pass
             await browser.close()

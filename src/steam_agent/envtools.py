@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from steam_agent.secure import secure_file
 from steam_agent.settings import PROJECT_ROOT
 
 ENV_PATH = PROJECT_ROOT / ".env"
@@ -26,4 +27,5 @@ def update_env(updates: dict[str, str], path: Path = ENV_PATH) -> Path:
         if key not in seen:
             out.append(f"{key}={value}")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    secure_file(path)  # .env holds the password + TOTP secret in plaintext
     return path

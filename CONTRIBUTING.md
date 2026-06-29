@@ -5,11 +5,16 @@ Thanks for your interest! Here's how to get around.
 ## Development setup
 
 ```bash
-uv sync                              # includes the dev-deps (pytest, ruff)
+uv sync                                # includes the dev-deps (pytest, ruff)
 uv run playwright install chromium
-uv run pytest -q                     # tests
-uv run ruff check src dashboard      # lint
+uv run pytest -q                       # tests
+uv run ruff check src dashboard tests  # lint (same as CI)
 ```
+
+No Steam account? `uv run python scripts/make_demo_db.py` generates a synthetic DB so you
+can run and develop the dashboard offline — see
+[Try the demo](README.md#try-the-demo-no-account-needed). CI (`.github/workflows/ci.yml`)
+runs ruff + pytest on every push/PR across Python 3.11–3.13.
 
 ## Project structure
 

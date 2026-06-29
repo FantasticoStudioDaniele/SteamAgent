@@ -5,10 +5,13 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from steam_agent.secure import secure_dir
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 CONFIG_DIR = PROJECT_ROOT / "config"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+secure_dir(DATA_DIR)  # data/ holds the DB + session + raw financial data
 
 
 class Settings(BaseSettings):
@@ -39,12 +42,21 @@ class Settings(BaseSettings):
     # Storage
     database_url: str = f"sqlite:///{(DATA_DIR / 'steam_agent.db').as_posix()}"
 
+    # Portfolio catalog location. Empty = config/games.yaml. Override (e.g.
+    # STEAM_GAMES_PATH=config/games.demo.yaml) to point the app at a different
+    # catalog without touching your real one — used by the demo mode.
+    steam_games_path: str = ""
+
     # Smoke-test on any public appid
     smoke_test_appid: int = 440
 
     @property
     def storage_state_path(self) -> Path:
         return DATA_DIR / "storage_state.json"
+
+    @property
+    def games_catalog_path(self) -> Path:
+        return Path(self.steam_games_path) if self.steam_games_path else CONFIG_DIR / "games.yaml"
 
 
 settings = Settings()

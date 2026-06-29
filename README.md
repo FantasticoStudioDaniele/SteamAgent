@@ -8,10 +8,23 @@ Steam exposes little data via API: some can be downloaded as CSV from the partne
 portals, while the rest must be read from the pages' HTML/JS. SteamAgent automates
 login and collection and saves everything to a local database (SQLite, or Postgres in production).
 
+[![CI](https://github.com/FantasticoStudioDaniele/SteamAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/FantasticoStudioDaniele/SteamAgent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > Use **your** data from **your** partner portal: legitimate collection. No
 > third-party scraping (e.g. SteamDB), gentle rate limits.
+
+## Screenshots
+
+Portfolio overview, per-game sales and marketing time-series — all rendered from the
+bundled **demo dataset**, so you can try the whole dashboard without a Steam account
+(see [Try the demo](#try-the-demo-no-account-needed)).
+
+![Overview](assets/overview.png)
+
+| Sales | Marketing |
+|---|---|
+| ![Sales](assets/sales.png) | ![Marketing](assets/marketing.png) |
 
 ## What it collects
 
@@ -36,7 +49,7 @@ Plus a **Streamlit dashboard** with an overview and one page per dataset.
 ## Quickstart
 
 ```bash
-git clone <repo-url> SteamAgent && cd SteamAgent
+git clone https://github.com/FantasticoStudioDaniele/SteamAgent.git && cd SteamAgent
 uv sync                                  # creates .venv and installs dependencies
 uv run playwright install chromium       # browser for the portal login
 
@@ -50,6 +63,24 @@ browser for login (handling the email confirmation and the 2FA code), **auto-det
 your `partner_id` and studio name, downloads the game list and initializes
 the database. At any time, **`uv run steam-agent doctor`** checks that
 all prerequisites are in place.
+
+### Try the demo (no account needed)
+
+No Steam partner account? Generate a synthetic dataset and explore the full dashboard —
+your real DB and catalog are left untouched:
+
+```bash
+uv run python scripts/make_demo_db.py    # writes data/demo.db + config/games.demo.yaml (fake data)
+
+# macOS / Linux
+DATABASE_URL=sqlite:///data/demo.db STEAM_GAMES_PATH=config/games.demo.yaml \
+  STUDIO_NAME="Pixel Forge Studio (demo)" \
+  uv run streamlit run dashboard/app.py
+
+# Windows (PowerShell)
+$env:DATABASE_URL="sqlite:///data/demo.db"; $env:STEAM_GAMES_PATH="config/games.demo.yaml"; `
+  $env:STUDIO_NAME="Pixel Forge Studio (demo)"; uv run streamlit run dashboard/app.py
+```
 
 ## Prerequisite: bot account
 
@@ -114,6 +145,7 @@ Reviews · Marketing**.
 | `STUDIO_NAME` | no | shown in dashboard; auto-detected |
 | `ANTHROPIC_API_KEY` | no | LLM features (roadmap) |
 | `DATABASE_URL` | no | defaults to SQLite; change here for Postgres |
+| `STEAM_GAMES_PATH` | no | alternate games catalog (e.g. the demo); default `config/games.yaml` |
 | `STEAM_PUBLISHER_API_KEY` | no | Steamworks Web API |
 
 Copy `.env.example` to `.env`, or let `setup` handle it. The `.env`, the

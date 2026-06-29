@@ -12,7 +12,7 @@ from rich.table import Table
 from sqlalchemy import select
 
 from steam_agent.collectors.public_api import PublicApiCollector
-from steam_agent.settings import CONFIG_DIR, settings
+from steam_agent.settings import settings
 from steam_agent.storage.db import SessionLocal, init_db
 from steam_agent.storage.models import GameSnapshot
 from steam_agent.storage.raw import build_snapshot, save_raw, save_snapshot
@@ -75,7 +75,7 @@ def collect_games() -> None:
     from steam_agent.collectors.partner_games import fetch_games
 
     games = asyncio.run(fetch_games())
-    out = CONFIG_DIR / "games.yaml"
+    out = settings.games_catalog_path
     out.write_text(yaml.safe_dump({"games": games}, allow_unicode=True), encoding="utf-8")
     console.print(f"[green]Saved {len(games)} games to[/] {out}")
 
@@ -304,10 +304,12 @@ def collect_marketing(
 @app.command()
 def doctor() -> None:
     """Check the prerequisites (Python, browser, .env, credentials, session, DB, catalog)."""
+    import os
     import sys
     from pathlib import Path as _Path
 
     from steam_agent.games import load_games
+    from steam_agent.secure import is_exposed
     from steam_agent.settings import PROJECT_ROOT
 
     checks: list[tuple[str, str, str]] = []  # (status OK|FAIL|WARN, item, detail)
@@ -346,6 +348,21 @@ def doctor() -> None:
     sess_ok = settings.storage_state_path.exists()
     checks.append(("OK" if sess_ok else "WARN", "Saved session",
                    "present" if sess_ok else "absent -> `login` / `setup`"))
+
+    exposed = [
+        name
+        for name, p in (
+            (".env", PROJECT_ROOT / ".env"),
+            ("storage_state.json", settings.storage_state_path),
+        )
+        if is_exposed(p)
+    ]
+    if exposed:
+        checks.append(("WARN", "Secret file permissions",
+                       f"group/other-readable: {', '.join(exposed)} -> chmod 600"))
+    else:
+        checks.append(("OK", "Secret file permissions",
+                       "restricted" if os.name == "posix" else "n/a (Windows ACLs)"))
 
     try:
         init_db()
@@ -455,7 +472,7 @@ def setup() -> None:
     console.print("Downloading the games list from the portal...")
     try:
         games = asyncio.run(fetch_games())
-        (CONFIG_DIR / "games.yaml").write_text(
+        settings.games_catalog_path.write_text(
             yaml.safe_dump({"games": games}, allow_unicode=True), encoding="utf-8"
         )
         console.print(f"[green]{len(games)} games[/] saved to config/games.yaml.\n")
@@ -490,13 +507,16 @@ def collect_all(
         raise typer.Exit(1)
 
     results: list[tuple[str, str]] = []
+    failures: list[str] = []
 
     def step(label: str, fn) -> None:
         console.print(f"[bold]→ {label}[/]")
         try:
             results.append((label, fn()))
         except Exception as exc:  # noqa: BLE001
+            logging.getLogger(__name__).exception("collect-all step failed: %s", label)
             results.append((label, f"[red]error: {exc}[/]"))
+            failures.append(label)
 
     def _marketing() -> str:
         from steam_agent.collectors.marketing import fetch_marketing
@@ -584,6 +604,14 @@ def collect_all(
     for label, res in results:
         table.add_row(label, str(res))
     console.print(table)
+
+    if failures:
+        # Exit non-zero so an unattended scheduler (cron/systemd/Task Scheduler)
+        # can detect and alert on a partial or total failure.
+        console.print(
+            f"[red]{len(failures)}/{len(results)} dataset(s) failed:[/] {', '.join(failures)}"
+        )
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
