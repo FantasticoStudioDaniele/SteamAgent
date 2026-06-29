@@ -1,21 +1,21 @@
-"""Shared data access and UI helpers for the Streamlit dashboard.
+"""Streamlit data facade: caching + UI helpers over `steam_agent.analytics`.
 
-Every page imports this module (`import data`). Tables are read via SQLAlchemy
-(swappable engine: SQLite/Postgres) and cached with `st.cache_data` (TTL 5 min);
-the "Refresh data" button clears the cache.
+The query/semantic layer lives in `steam_agent.analytics` (reusable, no
+Streamlit — shared by the dashboard, the planned NL->SQL assistant and any MCP
+server). This module only adds the dashboard concerns: `st.cache_data` caching
+(5-min TTL, cleared by the "Refresh data" button) and the small UI/formatting
+helpers the pages share. Pages keep importing `data` and calling `data.X`.
 """
 from __future__ import annotations
 
-import html
-import json
-import re
+from datetime import date
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from steam_agent.games import load_games
-from steam_agent.storage.db import engine, init_db
+from steam_agent import analytics
+from steam_agent.storage.db import init_db
 
 init_db()
 alt.data_transformers.disable_max_rows()
@@ -23,135 +23,67 @@ alt.data_transformers.disable_max_rows()
 TTL = 300  # seconds
 
 
-# ---------------------------------------------------------------- DB reading
-@st.cache_data(ttl=TTL, show_spinner=False)
-def _read(table: str, date_cols: tuple[str, ...] = ()) -> pd.DataFrame:
-    """Read an entire table into a DataFrame (table names are our own constants)."""
-    try:
-        return pd.read_sql_query(
-            f"SELECT * FROM {table}", engine, parse_dates=list(date_cols)
-        )
-    except Exception:  # table not present yet
-        return pd.DataFrame()
-
-
-def _unescape(s: str) -> str:
-    """Repeated html.unescape (some names are escaped multiple times)."""
-    s = s or ""
-    prev = None
-    while prev != s:
-        prev, s = s, html.unescape(s)
-    return s
-
-
-def _norm(s: str) -> str:
-    """Normalized form for name matching: lowercase, no punctuation."""
-    return re.sub(r"[^a-z0-9]+", " ", _unescape(s).lower()).strip()
-
-
+# --------------------------------------------------- cached data accessors
+# Thin cached wrappers over the analytics layer: caching is a dashboard concern,
+# so it lives here and not in the reusable module.
 @st.cache_data(ttl=TTL, show_spinner=False)
 def name_map() -> dict[int, str]:
-    """{appid: name} from the portfolio config (de-escaped names)."""
-    return {int(g["appid"]): _unescape(g["name"]) for g in load_games() if g.get("appid")}
+    return analytics.name_map()
 
 
-def _with_game(df: pd.DataFrame, col: str = "app_id") -> pd.DataFrame:
-    """Add the `game` column (readable name) derived from `app_id`."""
-    if df.empty:
-        df = df.copy()
-        df["game"] = pd.Series(dtype="object")
-        return df
-    df = df.copy()
-    df["game"] = df[col].map(name_map()).fillna(df[col].astype(str))
-    return df
-
-
+@st.cache_data(ttl=TTL, show_spinner=False)
 def wishlist() -> pd.DataFrame:
-    return _with_game(_read("wishlist_daily", ("date",)))
+    return analytics.wishlist()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def players() -> pd.DataFrame:
-    return _with_game(_read("players_daily", ("date",)))
+    return analytics.players()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def traffic() -> pd.DataFrame:
-    return _with_game(_read("traffic_daily", ("date",)))
+    return analytics.traffic()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def reviews() -> pd.DataFrame:
-    return _with_game(_read("review", ("created_at",)))
+    return analytics.reviews()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def snapshots() -> pd.DataFrame:
-    return _with_game(_read("game_snapshot", ("collected_at",)))
+    return analytics.snapshots()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def marketing() -> pd.DataFrame:
-    return _with_game(_read("marketing_daily", ("date",)))
+    return analytics.marketing()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def marketing_owners() -> pd.DataFrame:
-    return _with_game(_read("marketing_owners", ("snapshot_date",)))
+    return analytics.marketing_owners()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def marketing_country() -> pd.DataFrame:
-    return _with_game(_read("marketing_country", ("snapshot_date",)))
+    return analytics.marketing_country()
 
 
+@st.cache_data(ttl=TTL, show_spinner=False)
 def sales() -> pd.DataFrame:
-    return _read("sales_by_country", ("month",))
-
-
-def _as_dict(v) -> dict:
-    if isinstance(v, dict):
-        return v
-    if isinstance(v, str) and v:
-        try:
-            return json.loads(v)
-        except Exception:
-            return {}
-    return {}
+    return analytics.sales()
 
 
 @st.cache_data(ttl=TTL, show_spinner=False)
 def playtime() -> pd.DataFrame:
-    df = _with_game(_read("playtime_snapshot", ("snapshot_date",)))
-    if not df.empty:
-        df["distribution"] = df["distribution"].map(_as_dict)
-    return df
+    return analytics.playtime()
 
 
 @st.cache_data(ttl=TTL, show_spinner=False)
 def sales_with_game() -> pd.DataFrame:
-    """Sales with `app_id`/`game` derived from `product_name` (match by name,
-    longest prefix: so DLC/soundtracks roll up into the base game)."""
-    df = sales()
-    if df.empty:
-        df = df.copy()
-        df["app_id"] = pd.Series(dtype="Int64")
-        df["game"] = pd.Series(dtype="object")
-        return df
-    df = df.copy()
-    df["product_name"] = df["product_name"].fillna("").map(_unescape)
-    # normalized catalog, from longest to shortest name (most specific prefix)
-    cat = sorted(((_norm(n), a, n) for a, n in name_map().items()), key=lambda t: -len(t[0]))
-    exact = {nn: (a, n) for nn, a, n in cat}
-    amap: dict[str, object] = {}
-    gmap: dict[str, str] = {}
-    for prod in df["product_name"].unique():
-        pn = _norm(prod)
-        if pn in exact:
-            aid, g = exact[pn]
-        else:
-            aid, g = pd.NA, prod or "(unknown)"
-            for nn, a, n in cat:
-                if nn and pn.startswith(nn):
-                    aid, g = a, n
-                    break
-        amap[prod], gmap[prod] = aid, g
-    df["app_id"] = df["product_name"].map(amap).astype("Int64")
-    df["game"] = df["product_name"].map(gmap)
-    return df
+    return analytics.sales_with_game()
 
 
 # ------------------------------------------------------------- formatting
@@ -208,7 +140,13 @@ def filter_dates(df: pd.DataFrame, col: str, key: str, label: str = "Period") ->
     if lo >= hi:  # only one day available: a range picker would error out
         st.sidebar.caption(f"{label}: {lo} (single day)")
         return df
-    sel = st.sidebar.date_input(label, (lo, hi), min_value=lo, max_value=hi, key=key)
+    # Let the range reach today even when the latest data is a few days old: the
+    # calendar's relative presets ("Past week/month/year") end *today*, so a
+    # max_value pinned to the last data day makes them trip date_input's
+    # out-of-range error. The filter below still clips to whatever data exists.
+    sel = st.sidebar.date_input(
+        label, (lo, hi), min_value=lo, max_value=max(hi, date.today()), key=key
+    )
     if isinstance(sel, (list, tuple)) and len(sel) == 2:
         a = pd.Timestamp(sel[0])
         b = pd.Timestamp(sel[1]) + pd.Timedelta(days=1)

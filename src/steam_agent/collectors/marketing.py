@@ -54,6 +54,22 @@ _EXTRACT_JS = """() => {
 }"""
 
 
+# Steam's "Over Time" series occasionally start with a stray point detached from
+# the real, daily-continuous data (e.g. a single visit years before launch). The
+# data is daily, so a leading gap this large is never legitimate — drop such
+# points so they don't pollute the stored date range.
+_LEADING_GAP_DAYS = 90
+
+
+def _trim_leading_gaps(points: list[tuple[date, int]]) -> list[tuple[date, int]]:
+    """Drop stray leading points separated from the next point by a large gap."""
+    pts = sorted(points)
+    cut = 0
+    while cut + 1 < len(pts) and (pts[cut + 1][0] - pts[cut][0]).days > _LEADING_GAP_DAYS:
+        cut += 1
+    return pts[cut:]
+
+
 def parse_marketing(extract: dict, app_id: int) -> list[dict]:
     """Visits/Impressions Over Time series -> rows for the DB."""
     rows: list[dict] = []
@@ -64,6 +80,7 @@ def parse_marketing(extract: dict, app_id: int) -> list[dict]:
         labels = block.get("labels") or []
         for i, series in enumerate(block.get("data") or []):
             source = labels[i] if i < len(labels) else f"series{i}"
+            points: list[tuple[date, int]] = []
             for point in series or []:
                 if not point or len(point) < 2:
                     continue
@@ -72,13 +89,15 @@ def parse_marketing(extract: dict, app_id: int) -> list[dict]:
                 except ValueError:
                     continue
                 value = point[1]
+                points.append((day, int(value) if value is not None else 0))
+            for day, value in _trim_leading_gaps(points):
                 rows.append(
                     {
                         "app_id": app_id,
                         "date": day,
                         "metric": metric,
                         "source": str(source),
-                        "value": int(value) if value is not None else 0,
+                        "value": value,
                     }
                 )
     return rows
