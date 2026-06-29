@@ -53,9 +53,13 @@ def line_chart(frame: pd.DataFrame, title: str):
     order = (
         r.groupby("source")["value"].sum().sort_values(ascending=False).index.tolist()
     )
+    # A line needs >=2 points per source; when the range collapses to a single
+    # bucket (e.g. Month granularity over a <1-month range) the line is invisible,
+    # so render the dots too.
+    single = bool(r["date"].nunique() <= 1)
     return (
         alt.Chart(r)
-        .mark_line()
+        .mark_line(point=single)
         .encode(
             x=alt.X("date:T", title=None),
             y=alt.Y("value:Q", title=title),
@@ -84,6 +88,19 @@ data.kpis(
     ]
 )
 st.divider()
+
+# Hint when the chosen granularity collapses the range into a single bucket: the
+# series then has one point per source, which a line can't draw (shows as a dot).
+if g["date"].dt.to_period({"Day": "D", "Week": "W", "Month": "M"}[gran]).nunique() <= 1:
+    tip = {
+        "Month": "Switch Granularity to **Week** or **Day**",
+        "Week": "Switch Granularity to **Day**",
+        "Day": "Widen the period",
+    }[gran]
+    st.caption(
+        f"ℹ️ The selected range spans a single {gran.lower()}, so each source is one "
+        f"point (shown as a dot). {tip} to see a trend line."
+    )
 
 st.subheader("Visits Over Time")
 if vis.empty:
