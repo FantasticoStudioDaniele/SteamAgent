@@ -157,6 +157,8 @@ they never end up in the repository.
 - `src/steam_agent/auth/` — automatic login to the partner portals (Playwright + Steam Guard).
 - `src/steam_agent/collectors/` — one module per dataset (CSV download or HTML/JS scraping).
 - `src/steam_agent/storage/` — SQLAlchemy models, raw landing + typed warehouse.
+  Schema versioned with **Alembic** (`migrations/`); the app runs `upgrade head`
+  on startup, so updating SteamAgent never breaks an existing local database.
 - `dashboard/` — Streamlit.
 
 Steam has **two portals** with separate logins: `partner.steamgames.com` (new:
@@ -167,7 +169,8 @@ players, playtime). A single session covers both.
 
 Cross-platform code. In production: switch to Postgres (`DATABASE_URL`), configure
 `STEAM_SHARED_SECRET` for unattended login and schedule `collect-all`
-(cron / systemd timer / Task Scheduler).
+(cron / systemd timer / Task Scheduler). The schema is created and kept up to date
+automatically via Alembic on startup (or run `uv run alembic upgrade head`).
 
 ## Roadmap
 

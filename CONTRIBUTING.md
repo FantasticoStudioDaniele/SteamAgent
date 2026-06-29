@@ -21,8 +21,9 @@ runs ruff + pytest on every push/PR across Python 3.11–3.13.
 - `src/steam_agent/auth/` — Playwright login to the two portals + Steam Guard (TOTP/code).
 - `src/steam_agent/collectors/` — one file per dataset. Pattern: an async
   `fetch_<name>(...)` function that returns dict-rows.
-- `src/steam_agent/storage/` — SQLAlchemy models (`models.py`) and idempotent
-  persistence (`raw.py`, `save_<name>` functions).
+- `src/steam_agent/storage/` — SQLAlchemy models (`models.py`), idempotent
+  persistence (`raw.py`, `save_<name>` functions), and the Alembic bootstrap
+  (`migrate.py`); schema migrations live in `migrations/`.
 - `src/steam_agent/cli.py` — Typer commands ("lazy" imports inside the commands that use the browser).
 - `dashboard/` — Streamlit: `data.py` is the shared data-layer, `pages/` the pages.
 - `scripts/` — portal page inspection tools (`inspect_partner.py`,
@@ -35,7 +36,26 @@ runs ruff + pytest on every push/PR across Python 3.11–3.13.
    (idempotent: full-refresh or upsert by key).
 3. Add the command in `cli.py` (with local imports inside the function).
 4. *(Optional)* loader in `dashboard/data.py` + page in `dashboard/pages/`.
-5. `uv run steam-agent init-db` to create the table; test on a single appid.
+5. Generate a migration for the new table (see **Database migrations**), then
+   test on a single appid.
+
+## Database migrations
+
+The schema is managed by **Alembic** (`migrations/`). On startup the app runs
+`upgrade head` automatically (existing pre-Alembic DBs are *stamped*, never
+recreated), so users never lose data on a schema change.
+
+When you change anything in `storage/models.py`, generate and review a migration:
+
+```bash
+uv run alembic revision --autogenerate -m "describe the change"  # writes migrations/versions/<rev>.py
+# review the generated upgrade()/downgrade() — autogenerate is a draft, not gospel
+uv run alembic upgrade head      # apply it locally
+uv run alembic current           # should print the new revision (head)
+```
+
+Commit the generated revision file together with the model change. SQLite uses
+Alembic batch mode (table rebuild) automatically, so column changes work there too.
 
 ## Style and rules
 

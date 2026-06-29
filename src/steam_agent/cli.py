@@ -28,9 +28,9 @@ app = typer.Typer(add_completion=False, help="SteamAgent — Steam developer dat
 
 @app.command("init-db")
 def init_db_cmd() -> None:
-    """Create the database tables."""
+    """Create or migrate the database schema to the latest Alembic revision."""
     init_db()
-    console.print(f"[green]DB ready:[/] {settings.database_url}")
+    console.print(f"[green]Schema up to date[/] (Alembic head): {settings.database_url}")
 
 
 @app.command("collect-public")
