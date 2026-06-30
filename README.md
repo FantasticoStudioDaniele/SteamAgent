@@ -108,6 +108,7 @@ uv run steam-agent doctor            # check prerequisites
 uv run steam-agent collect-all       # update ALL datasets in sequence
 uv run steam-agent login [--headed]  # login/session refresh only
 uv run steam-agent collect-games     # update the game list (config/games.yaml)
+uv run steam-agent init-db           # create/upgrade the DB schema (Alembic head)
 
 # individual datasets:
 uv run steam-agent collect-marketing # visits/impressions per source + ownership + countries
@@ -117,6 +118,7 @@ uv run steam-agent collect-players
 uv run steam-agent collect-playtime
 uv run steam-agent collect-reviews
 uv run steam-agent collect-traffic [--day YYYY-MM-DD]
+uv run steam-agent collect-public [--appid N]  # public-API snapshot (players/reviews/price), no login
 uv run steam-agent show              # latest public snapshots
 ```
 
